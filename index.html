@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#080b08">
 <title>Инвентарь — Café de Ghouli</title>
@@ -868,16 +869,36 @@ async function apiFetch(params) {
 // Apps Script не поддерживает CORS preflight для POST
 // Сохранение тоже через GET с параметром data=JSON
 async function apiPost(body) {
-  const params = new URLSearchParams({
-    action: body.action,
-    date: body.date || '',
-    section: body.section || 'бар',
-    data: JSON.stringify(body.items || [])
-  });
-  const r = await fetch(API_URL + '?' + params, { redirect: 'follow', cache: 'no-store' });
-  const text = await r.text();
-  try { return JSON.parse(text); }
-  catch(e) { throw new Error('Ответ не JSON: ' + text.slice(0,300)); }
+  // Use POST + text/plain to avoid URL size limits and CORS preflight.
+  // If network/proxy blocks POST, fallback to legacy GET.
+  try {
+    const r = await fetch(API_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({
+        action: body.action,
+        date: body.date || '',
+        section: body.section || 'бар',
+        items: body.items || []
+      }),
+      redirect: 'follow',
+      cache: 'no-store'
+    });
+    const text = await r.text();
+    try { return JSON.parse(text); }
+    catch(e) { throw new Error('Ответ не JSON: ' + text.slice(0,300)); }
+  } catch(postErr) {
+    const params = new URLSearchParams({
+      action: body.action,
+      date: body.date || '',
+      section: body.section || 'бар',
+      data: JSON.stringify(body.items || [])
+    });
+    const r = await fetch(API_URL + '?' + params, { redirect: 'follow', cache: 'no-store' });
+    const text = await r.text();
+    try { return JSON.parse(text); }
+    catch(e) { throw new Error('Ответ не JSON: ' + text.slice(0,300)); }
+  }
 }
 
 // ── LOAD CATALOG ─────────────────────────────────────
