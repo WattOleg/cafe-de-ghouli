@@ -866,38 +866,27 @@ async function apiFetch(params) {
   catch(e) { throw new Error('Ответ не JSON: ' + text.slice(0,300)); }
 }
 
-// Apps Script не поддерживает CORS preflight для POST
-// Сохранение тоже через GET с параметром data=JSON
+// Save via POST only. GET fallback causes long URL + CORS/400 on Apps Script redirects.
 async function apiPost(body) {
-  // Use POST + text/plain to avoid URL size limits and CORS preflight.
-  // If network/proxy blocks POST, fallback to legacy GET.
-  try {
-    const r = await fetch(API_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-      body: JSON.stringify({
-        action: body.action,
-        date: body.date || '',
-        section: body.section || 'бар',
-        items: body.items || []
-      }),
-      redirect: 'follow',
-      cache: 'no-store'
-    });
-    const text = await r.text();
-    try { return JSON.parse(text); }
-    catch(e) { throw new Error('Ответ не JSON: ' + text.slice(0,300)); }
-  } catch(postErr) {
-    const params = new URLSearchParams({
+  const r = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({
       action: body.action,
       date: body.date || '',
       section: body.section || 'бар',
-      data: JSON.stringify(body.items || [])
-    });
-    const r = await fetch(API_URL + '?' + params, { redirect: 'follow', cache: 'no-store' });
-    const text = await r.text();
-    try { return JSON.parse(text); }
-    catch(e) { throw new Error('Ответ не JSON: ' + text.slice(0,300)); }
+      items: body.items || []
+    }),
+    redirect: 'follow',
+    cache: 'no-store'
+  });
+  const text = await r.text();
+  try { return JSON.parse(text); }
+  catch(e) {
+    if (text.includes('<!DOCTYPE') || text.includes('<HTML>')) {
+      throw new Error('Сервер вернул HTML вместо JSON. Обновите deployment Apps Script и доступ Web App.');
+    }
+    throw new Error('Ответ не JSON: ' + text.slice(0,300));
   }
 }
 
