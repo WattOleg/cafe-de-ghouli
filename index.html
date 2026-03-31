@@ -7,8 +7,8 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#080b08">
 <title>Инвентарь — Café de Ghouli</title>
-<link rel="manifest" href="/manifest.json">
-<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" id="appIcon" href="apple-touch-icon.png">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 /* ── RESET & VARS ── */
@@ -458,6 +458,11 @@ let isOnline = navigator.onLine;
 const TODAY = todayStr();
 let currentSection = localStorage.getItem('lastSection') || 'бар';
 
+function keyTotals() { return 'totals_' + currentSection + '_' + TODAY; }
+function keyDirty() { return 'dirty_' + currentSection + '_' + TODAY; }
+function keyCatalog() { return 'catalog_' + currentSection; }
+function keyPending() { return 'pending_' + currentSection + '_' + TODAY; }
+
 const SECTIONS = {
   'бар':           { label: '🍸 Бар',           sheet: 'Справочник_бар' },
   'кухня':         { label: '🍳 Кухня',          sheet: 'Справочник_кухня' },
@@ -792,8 +797,11 @@ async function _doDelete(itemId) {
 // ── SECTION SWITCH ───────────────────────────────
 async function switchSection(section) {
   if (section === currentSection) return;
-  // Save current dirty data first
-  if (dirty.size > 0) await syncNow();
+  // Persist pending changes before switching section
+  if (dirty.size > 0) {
+    persistPendingSnapshot();
+    if (isOnline) await flushDirty();
+  }
   currentSection = section;
   localStorage.setItem('lastSection', section);
   // Update tab UI
@@ -802,6 +810,7 @@ async function switchSection(section) {
   if (tab) tab.classList.add('active');
   // Reset state
   catalog = []; cats = []; totals = {}; dirty = new Set();
+  loadLocal();
   clearSearch();
   document.getElementById('listWrap').innerHTML = `
     <div class="state-msg"><div class="spinner"></div><span>Загрузка...</span></div>`;
@@ -850,7 +859,7 @@ document.addEventListener('click', function(e) {
 // Apps Script делает 302 redirect перед ответом — нужен redirect:follow
 async function apiFetch(params) {
   const url = API_URL + '?' + new URLSearchParams(params);
-  const r = await fetch(url, { redirect: 'follow' });
+  const r = await fetch(url, { redirect: 'follow', cache: 'no-store' });
   const text = await r.text();
   try { return JSON.parse(text); }
   catch(e) { throw new Error('Ответ не JSON: ' + text.slice(0,300)); }
@@ -865,7 +874,7 @@ async function apiPost(body) {
     section: body.section || 'бар',
     data: JSON.stringify(body.items || [])
   });
-  const r = await fetch(API_URL + '?' + params, { redirect: 'follow' });
+  const r = await fetch(API_URL + '?' + params, { redirect: 'follow', cache: 'no-store' });
   const text = await r.text();
   try { return JSON.parse(text); }
   catch(e) { throw new Error('Ответ не JSON: ' + text.slice(0,300)); }
@@ -875,7 +884,7 @@ async function apiPost(body) {
 async function loadCatalog() {
   if (!isOnline) {
     // Offline fallback — use cache only if available
-    const cached = localStorage.getItem('catalog');
+    const cached = localStorage.getItem(keyCatalog());
     if (cached) {
       catalog = JSON.parse(cached);
       buildCats();
@@ -891,13 +900,13 @@ async function loadCatalog() {
     if (data.error) { showError('Ошибка: ' + data.error); return; }
     if (data.items && data.items.length) {
       catalog = data.items;
-      localStorage.setItem('catalog', JSON.stringify(catalog));
+      localStorage.setItem(keyCatalog(), JSON.stringify(catalog));
       buildCats();
       hideLoading();
     }
   } catch(e) {
     // Network error — try cache
-    const cached = localStorage.getItem('catalog');
+    const cached = localStorage.getItem(keyCatalog());
     if (cached) {
       catalog = JSON.parse(cached);
       buildCats();
@@ -912,14 +921,20 @@ async function loadCatalog() {
 async function loadSession() {
   if (!isOnline) return;
   try {
-    // Always load fresh session — clears any stale local data
+    const localTotals = {...totals};
+    const pendingRaw = localStorage.getItem(keyPending());
+    const pending = pendingRaw ? JSON.parse(pendingRaw) : null;
     const data = await apiFetch({action:'session', date:TODAY, section:currentSection});
     if (data.items !== undefined) {
-      // Reset totals completely, then apply what's in Sheets
       totals = {};
       data.items.forEach(item => {
         if (item.total > 0) totals[item.id] = item.total;
       });
+      // Never lose local edits: overlay unsynced local values
+      dirty.forEach(id => { totals[id] = localTotals[id] || 0; });
+      if (pending && Array.isArray(pending.items)) {
+        pending.items.forEach(it => { totals[it.id] = Number(it.total) || 0; });
+      }
       saveLocal();
     }
   } catch(e) { /* use local */ }
@@ -949,12 +964,35 @@ function showError(msg) {
 
 // ── LOCAL STORAGE ─────────────────────────────────────
 function saveLocal() {
-  localStorage.setItem('totals_'+currentSection+'_'+TODAY, JSON.stringify(totals));
+  localStorage.setItem(keyTotals(), JSON.stringify(totals));
+  localStorage.setItem(keyDirty(), JSON.stringify([...dirty]));
 }
 
 function loadLocal() {
-  const t = localStorage.getItem('totals_'+currentSection+'_'+TODAY);
+  const t = localStorage.getItem(keyTotals());
   if (t) totals = JSON.parse(t);
+  const d = localStorage.getItem(keyDirty());
+  dirty = new Set(d ? JSON.parse(d) : []);
+}
+
+function persistPendingSnapshot() {
+  localStorage.setItem(keyPending(), JSON.stringify({
+    ts: Date.now(),
+    items: allFilledItems()
+  }));
+}
+
+function clearPendingSnapshot() {
+  localStorage.removeItem(keyPending());
+}
+
+function getItemsToSync() {
+  const pendingRaw = localStorage.getItem(keyPending());
+  const pending = pendingRaw ? JSON.parse(pendingRaw) : null;
+  const localItems = allFilledItems();
+  if (!pending || !Array.isArray(pending.items)) return localItems;
+  // Prefer the latest local in-memory state
+  return localItems.length ? localItems : pending.items;
 }
 
 // ── SYNC ─────────────────────────────────────────────
@@ -964,20 +1002,19 @@ function scheduleSave() {
 }
 
 async function flushDirty() {
-  if (!dirty.size || !isOnline) return;
+  if (!isOnline) return;
+  if (!dirty.size && !localStorage.getItem(keyPending())) return;
   setSyncState('syncing');
   try {
-    const items = [...dirty].map(id => {
-      const item = catalog.find(i=>i.id===id);
-      if (!item) return null;
-      return {id, code:item.code, name:item.name, unit:item.unit, total:totals[id]||0};
-    }).filter(Boolean);
-
-    if (!items.length) { setSyncState('ok'); return; }
-    await apiPost({action:'saveAll', date:TODAY, section:currentSection, items: allFilledItems()});
+    const items = getItemsToSync();
+    await apiPost({action:'saveAll', date:TODAY, section:currentSection, items});
     dirty.clear();
+    clearPendingSnapshot();
+    saveLocal();
     setSyncState('ok');
   } catch(e) {
+    persistPendingSnapshot();
+    saveLocal();
     setSyncState('error');
   }
 }
@@ -989,16 +1026,22 @@ function allFilledItems() {
 }
 
 async function syncNow() {
-  if (!isOnline) { showToast('⚠ Нет подключения', true); return; }
+  persistPendingSnapshot();
+  saveLocal();
+  if (!isOnline) { showToast('⚠ Нет подключения — сохранено локально', true); return; }
   setSyncState('syncing');
   try {
-    await apiPost({action:'saveAll', date:TODAY, section:currentSection, items: allFilledItems()});
+    await apiPost({action:'saveAll', date:TODAY, section:currentSection, items: getItemsToSync()});
     dirty.clear();
+    clearPendingSnapshot();
+    saveLocal();
     setSyncState('ok');
     showToast('✓ Сохранено в Google Sheets');
   } catch(e) {
+    persistPendingSnapshot();
+    saveLocal();
     setSyncState('error');
-    showToast('Ошибка синхронизации', true);
+    showToast('Ошибка синхронизации — повторим автоматически', true);
   }
 }
 
@@ -1143,6 +1186,7 @@ function commitValue(newTotal) {
   const item = activeItem;
   totals[item.id] = newTotal;
   dirty.add(item.id);
+  persistPendingSnapshot();
   saveLocal();
   closeAll(); clearSearch();
   updateCard(item.id); updateStats();

@@ -1,0 +1,9 @@
+{
+  "name": "Инвентарь — Cafe de Ghouli",
+  "short_name": "Инвентарь",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#080b08",
+  "theme_color": "#080b08",
+  "icons": []
+}
