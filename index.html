@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#080b08">
 <title>Инвентарь — Café de Ghouli</title>
 <link rel="manifest" href="manifest.json">
-<link rel="apple-touch-icon" id="appIcon" href="apple-touch-icon.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@300;400;500&display=swap" rel="stylesheet">
 <style>
 /* ── RESET & VARS ── */
@@ -263,67 +263,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
 .overlay.visible{display:block}
 .overlay.overlay--pop{background:rgba(0,0,0,.72)}
 </style>
-<script>
-// Generate PNG icon via canvas for iOS home screen
-(function(){
-  var c = document.createElement('canvas');
-  c.width = c.height = 512;
-  var ctx = c.getContext('2d');
-  // Background
-  var bg = ctx.createLinearGradient(0,0,512,512);
-  bg.addColorStop(0,'#0d120d'); bg.addColorStop(1,'#080b08');
-  ctx.fillStyle = bg;
-  roundRect(ctx, 0, 0, 512, 512, 110);
-  ctx.fill();
-  // Glow ring
-  ctx.strokeStyle = '#3ddc6e'; ctx.lineWidth = 3; ctx.globalAlpha = 0.3;
-  ctx.beginPath(); ctx.arc(256, 220, 130, 0, Math.PI*2); ctx.stroke();
-  ctx.globalAlpha = 1;
-  // Ghost body
-  var grad = ctx.createLinearGradient(156,110,336,310);
-  grad.addColorStop(0,'#1a3a2a'); grad.addColorStop(1,'#1a0a2a');
-  ctx.fillStyle = grad;
-  ctx.strokeStyle = '#3ddc6e'; ctx.lineWidth = 7;
-  ctx.beginPath();
-  ctx.moveTo(256,110);
-  ctx.bezierCurveTo(196,110,156,152,156,210);
-  ctx.lineTo(156,310);
-  ctx.lineTo(186,290); ctx.lineTo(216,310);
-  ctx.lineTo(246,290); ctx.lineTo(276,310);
-  ctx.lineTo(306,290); ctx.lineTo(336,310);
-  ctx.lineTo(336,210);
-  ctx.bezierCurveTo(336,152,316,110,256,110);
-  ctx.fill(); ctx.stroke();
-  // Eyes
-  ctx.fillStyle='#3ddc6e'; ctx.globalAlpha=0.9;
-  ctx.beginPath(); ctx.arc(222,205,18,0,Math.PI*2); ctx.fill();
-  ctx.fillStyle='#a855f7';
-  ctx.beginPath(); ctx.arc(290,205,18,0,Math.PI*2); ctx.fill();
-  ctx.globalAlpha=1;
-  ctx.fillStyle='#080b08';
-  ctx.beginPath(); ctx.arc(228,199,7,0,Math.PI*2); ctx.fill();
-  ctx.beginPath(); ctx.arc(296,199,7,0,Math.PI*2); ctx.fill();
-  // Smile
-  ctx.strokeStyle='#3ddc6e'; ctx.lineWidth=5; ctx.lineCap='round';
-  ctx.beginPath(); ctx.moveTo(228,242); ctx.quadraticCurveTo(256,264,284,242); ctx.stroke();
-  // Text
-  ctx.fillStyle='#3ddc6e'; ctx.font='bold 40px Georgia,serif';
-  ctx.textAlign='center'; ctx.letterSpacing='3px';
-  ctx.fillText('GHOULI', 256, 395);
-  ctx.fillStyle='#7a9a7a'; ctx.font='20px Georgia,serif';
-  ctx.fillText('inventory', 256, 430);
-  // Set as icon
-  var png = c.toDataURL('image/png');
-  document.getElementById('appIcon').href = png;
-  function roundRect(ctx,x,y,w,h,r){
-    ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);
-    ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);
-    ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);
-    ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);
-    ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
-  }
-})();
-</script>
 </head>
 <body>
 <div class="app">
