@@ -149,6 +149,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
 .offline-banner{display:none;background:#3a2200;border:1px solid #664400;border-radius:10px;padding:8px 14px;margin-bottom:10px;font-family:'JetBrains Mono',monospace;font-size:11px;color:#cc8800;text-align:center}
 .offline-banner.show{display:block}
 
+.local-trust-hint{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-muted);line-height:1.4;margin-top:10px;padding:0 2px;letter-spacing:.03em;max-width:100%}
+
 /* ── SECTION TABS ── */
 .section-tabs{display:flex;gap:6px;margin-top:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
 .section-tabs::-webkit-scrollbar{display:none}
@@ -282,6 +284,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
         <div id="visitCounter" style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-muted);letter-spacing:.06em"></div>
       </div>
     </div>
+    <div class="local-trust-hint" id="localTrustHint"></div>
 
     <!-- SECTION TABS -->
     <div class="section-tabs" id="sectionTabs">
@@ -413,6 +416,116 @@ function keyDirty() { return 'dirty_' + currentSection + '_' + TODAY; }
 function keyCatalog() { return 'catalog_' + currentSection; }
 function keyPending() { return 'pending_' + currentSection + '_' + TODAY; }
 
+// ── IndexedDB: дубль localStorage (надёжнее при сбоях Safari / нехватке места в LS) ──
+var IDB_NAME = 'cafe-de-ghouli-inv';
+var IDB_VER = 1;
+var IDB_STORE = 'kv';
+
+function idbOpen() {
+  return new Promise(function (resolve, reject) {
+    var req = indexedDB.open(IDB_NAME, IDB_VER);
+    req.onerror = function () { reject(req.error); };
+    req.onupgradeneeded = function (e) {
+      var db = e.target.result;
+      if (!db.objectStoreNames.contains(IDB_STORE)) db.createObjectStore(IDB_STORE);
+    };
+    req.onsuccess = function () { resolve(req.result); };
+  });
+}
+
+function idbPut(key, val) {
+  return idbOpen().then(function (db) {
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.oncomplete = function () { resolve(); };
+      tx.onerror = function () { reject(tx.error); };
+      tx.objectStore(IDB_STORE).put(val, key);
+    });
+  });
+}
+
+function idbGet(key) {
+  return idbOpen().then(function (db) {
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction(IDB_STORE, 'readonly');
+      var r = tx.objectStore(IDB_STORE).get(key);
+      r.onsuccess = function () { resolve(r.result); };
+      r.onerror = function () { reject(r.error); };
+    });
+  });
+}
+
+function mirrorSnapshotToIndexedDB() {
+  try {
+    var pendingRaw = localStorage.getItem(keyPending());
+    var payload = {
+      totals: totals,
+      dirty: [...dirty],
+      pendingRaw: pendingRaw,
+      ts: Date.now(),
+      section: currentSection,
+      date: TODAY
+    };
+    idbPut('snap_' + currentSection + '_' + TODAY, payload).catch(function () {});
+    var catRaw = localStorage.getItem(keyCatalog());
+    if (catRaw) idbPut('cat_' + currentSection, catRaw).catch(function () {});
+  } catch (e) {}
+}
+
+async function tryRecoverFromIndexedDB() {
+  if (!('indexedDB' in window)) return;
+  try {
+    var sec = currentSection;
+    var snapKey = 'snap_' + sec + '_' + TODAY;
+    if (!localStorage.getItem('totals_' + sec + '_' + TODAY)) {
+      var snap = await idbGet(snapKey);
+      if (snap && snap.totals) {
+        localStorage.setItem('totals_' + sec + '_' + TODAY, JSON.stringify(snap.totals));
+        localStorage.setItem('dirty_' + sec + '_' + TODAY, JSON.stringify(snap.dirty || []));
+        if (snap.pendingRaw) localStorage.setItem('pending_' + sec + '_' + TODAY, snap.pendingRaw);
+      }
+    }
+    if (!localStorage.getItem('catalog_' + sec)) {
+      var cat = await idbGet('cat_' + sec);
+      if (cat && typeof cat === 'string') localStorage.setItem('catalog_' + sec, cat);
+    }
+  } catch (e) {}
+}
+
+function updateLocalTrustHint() {
+  var el = document.getElementById('localTrustHint');
+  if (!el) return;
+  var ts = localStorage.getItem('lastLocalSaveTs');
+  var t = ts ? new Date(Number(ts)) : null;
+  var timeStr = t && !isNaN(t.getTime())
+    ? t.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+    : '';
+  var hasPending = dirty.size > 0 || localStorage.getItem(keyPending());
+  if (hasPending) {
+    el.textContent = 'На устройстве сохранено · ждёт отправки в таблицу' + (timeStr ? ' · ' + timeStr : '');
+    el.style.color = 'var(--text-dim)';
+  } else {
+    el.textContent = 'Остатки хранятся на этом устройстве' + (timeStr ? ' · обновлено ' + timeStr : '');
+    el.style.color = 'var(--text-muted)';
+  }
+}
+
+var storagePersistRequested = false;
+function requestStoragePersistenceOnce() {
+  if (storagePersistRequested) return;
+  storagePersistRequested = true;
+  if (navigator.storage && navigator.storage.persist) {
+    navigator.storage.persist().catch(function () {});
+  }
+}
+
+function persistEverything() {
+  try {
+    persistPendingSnapshot();
+    saveLocal();
+  } catch (e) {}
+}
+
 var FETCH_TIMEOUT_MS = 22000;
 
 async function fetchWithTimeout(url, options, ms) {
@@ -510,8 +623,11 @@ function catStyle(name) {
 window.addEventListener('online',  () => { isOnline=true;  updateOfflineBanner(); flushDirty(); });
 window.addEventListener('offline', () => { isOnline=false; updateOfflineBanner(); });
 document.addEventListener('visibilitychange', function () {
+  if (document.hidden) persistEverything();
   if (!document.hidden && isOnline) flushDirty();
 });
+window.addEventListener('pagehide', persistEverything);
+window.addEventListener('beforeunload', persistEverything);
 
 // ── EDIT MODE ────────────────────────────────────
 function toggleEditMode(on) {
@@ -806,9 +922,10 @@ async function _doDelete(itemId) {
 // ── SECTION SWITCH ───────────────────────────────
 async function switchSection(section) {
   if (section === currentSection) return;
-  // Persist pending changes before switching section
+  // Сначала зафиксировать текущий цех на диске (иначе офлайн-потеря данных при смене вкладки)
   if (dirty.size > 0) {
     persistPendingSnapshot();
+    saveLocal();
     if (isOnline) await flushDirty();
   }
   currentSection = section;
@@ -837,6 +954,7 @@ async function switchSection(section) {
   await loadSession();
   renderList();
   updateStats();
+  updateLocalTrustHint();
 }
 
 // ── VISIT COUNTER ─────────────────────────────────
@@ -862,10 +980,12 @@ document.addEventListener('click', function(e) {
 });
 
 (async function init() {
+  await tryRecoverFromIndexedDB();
   loadLocal();
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   const activeTab = document.getElementById('tab-' + currentSection);
   if (activeTab) activeTab.classList.add('active');
+  updateLocalTrustHint();
   if (hydrateCatalogFromCache()) {
     renderList();
     updateStats();
@@ -875,7 +995,10 @@ document.addEventListener('click', function(e) {
   await loadSession();
   renderList();
   updateStats();
+  updateLocalTrustHint();
   trackVisit();
+  document.body.addEventListener('touchstart', requestStoragePersistenceOnce, { once: true, passive: true });
+  document.body.addEventListener('click', requestStoragePersistenceOnce, { once: true, passive: true });
   if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('sw.js', { scope: './' }).catch(function () {});
   }
@@ -946,6 +1069,7 @@ async function loadCatalog() {
       localStorage.setItem(keyCatalog(), JSON.stringify(catalog));
       buildCats();
       hideLoading();
+      mirrorSnapshotToIndexedDB();
     }
   } catch(e) {
     const cached = localStorage.getItem(keyCatalog());
@@ -953,6 +1077,7 @@ async function loadCatalog() {
       catalog = JSON.parse(cached);
       buildCats();
       hideLoading();
+      mirrorSnapshotToIndexedDB();
       showToast('⚠ Нет сети — данные из кеша', true);
     } else {
       showError('Не удалось загрузить справочник. ' + (e.message || ''));
@@ -1014,6 +1139,9 @@ function showError(msg) {
 function saveLocal() {
   localStorage.setItem(keyTotals(), JSON.stringify(totals));
   localStorage.setItem(keyDirty(), JSON.stringify([...dirty]));
+  try { localStorage.setItem('lastLocalSaveTs', String(Date.now())); } catch (e) {}
+  mirrorSnapshotToIndexedDB();
+  updateLocalTrustHint();
 }
 
 function loadLocal() {
@@ -1099,6 +1227,7 @@ function setSyncState(state) {
   const lbl = document.getElementById('syncLabel');
   btn.className = 'sync-btn ' + (state==='syncing'?'syncing':state==='error'?'error':'');
   lbl.textContent = state==='syncing'?'Сохраняю…':state==='error'?'Ошибка':'Сохранить';
+  updateLocalTrustHint();
 }
 
 // ── OFFLINE BANNER ────────────────────────────────────
