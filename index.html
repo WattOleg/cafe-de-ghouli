@@ -888,7 +888,9 @@ async function switchSection(section) {
   activeItem = null;
   updateOverlayState();
   showListLoadingState('Загрузка...');
-  if (hydrateCatalogFromCache()) {
+  // Онлайн: не показываем кеш предыдущего цеха — сразу ждём свежий справочник с сервера.
+  // Офлайн: подставляем последний сохранённый список для этого цеха.
+  if (!isOnline && hydrateCatalogFromCache()) {
     renderList();
     updateStats();
   }
