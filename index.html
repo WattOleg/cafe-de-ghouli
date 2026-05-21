@@ -146,7 +146,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
 @media (hover:hover){.qa-btn-subtract:hover{background:var(--bg3);color:var(--green);border-color:var(--green)}}
 
 /* ── MAIN LIST ── */
-.list-wrap{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 18px 12px;-webkit-overflow-scrolling:touch;position:relative;z-index:1}
+.list-wrap{flex:1;overflow-y:auto;overflow-x:hidden;padding:12px 18px calc(170px + var(--safe-bot));-webkit-overflow-scrolling:touch;position:relative;z-index:1}
 .list-wrap::-webkit-scrollbar{display:none}
 
 /* offline badge */
@@ -1041,25 +1041,24 @@ async function onDateChange() {
   updateLocalTrustHint();
 }
 
+function populateDateDatalist() {
+  const dl = document.getElementById('existingDates');
+  const select = document.getElementById('dateSelect');
+  if (!dl || !select) return;
+  const opts = Array.from(select.options).map(o => o.value).filter(Boolean);
+  dl.innerHTML = opts.map(d => `<option value="${d}">${formatDateRu(d)}</option>`).join('');
+}
+
 async function createNewSessionPrompt() {
   const modal = document.getElementById('newSessionModal');
   const input = document.getElementById('newSessionDateInput');
-  // Ensure we have latest dates to suggest existing sessions
-  try { await loadDates(); } catch (e) { /* ignore */ }
-  // Populate datalist with available dates
-  try {
-    const dl = document.getElementById('existingDates');
-    const select = document.getElementById('dateSelect');
-    if (dl && select) {
-      const opts = Array.from(select.options).map(o => o.value).filter(Boolean);
-      dl.innerHTML = opts.map(d => `<option value="${d}">${formatDateRu(d)}</option>`).join('');
-    }
-  } catch (e) { /* ignore */ }
-
   if (modal && input) {
     input.value = todayStr();
     modal.classList.add('visible');
+    populateDateDatalist();
   }
+  // Load latest dates in background and update suggestions
+  loadDates().then(populateDateDatalist).catch(function(){});
 }
 
 function closeNewSessionModal() {
