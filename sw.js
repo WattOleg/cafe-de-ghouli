@@ -4,7 +4,14 @@ var CACHE = 'cafe-de-ghouli-shell-v2';
 self.addEventListener('install', function (e) {
   e.waitUntil(
     caches.open(CACHE).then(function (cache) {
-      return cache.addAll(['./', './index.html', './manifest.json', './apple-touch-icon.png']).catch(function () {});
+      var urls = ['./', './index.html', './manifest.json', './apple-touch-icon.png'];
+      return Promise.all(
+        urls.map(function (url) {
+          return cache.add(url).catch(function (err) {
+            console.warn('Failed to cache:', url, err);
+          });
+        })
+      );
     })
   );
   self.skipWaiting();

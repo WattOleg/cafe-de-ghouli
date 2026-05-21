@@ -33,6 +33,10 @@ function doGet(e) {
     else if (action === 'addItem')    result = addItem(ss, e.parameter);
     else if (action === 'deleteItem') result = deleteItem(ss, e.parameter);
     else if (action === 'visit')    result = trackVisit(ss);
+    else if (action === 'getDates') {
+      var sec3 = e.parameter.section || 'бар';
+      result = getSessionDates(ss, sec3);
+    }
     else if (action === 'saveAll') {
       var items = JSON.parse(e.parameter.data || '[]');
       var sec2 = e.parameter.section || 'бар';
@@ -159,7 +163,7 @@ function getSession(ss, date, section) {
       code: String(data[i][1] || ''),
       name: String(data[i][2] || ''),
       unit: String(data[i][3] || ''),
-      total: parseFloat(data[i][4]) || 0
+      total: parseFloat(String(data[i][4] || '').trim().replace(',', '.')) || 0
     });
   }
   return { date: date, items: items };
@@ -239,7 +243,14 @@ function trackVisit(ss) {
   if (lastRow > 1) {
     var dates = sheet.getRange(2, 1, lastRow-1, 1).getValues();
     for (var i = 0; i < dates.length; i++) {
-      if (String(dates[i][0]).slice(0,10) === today) {
+      var cellVal = dates[i][0];
+      var cellDateStr = '';
+      if (cellVal instanceof Date) {
+        cellDateStr = Utilities.formatDate(cellVal, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+      } else if (cellVal) {
+        cellDateStr = String(cellVal).slice(0, 10);
+      }
+      if (cellDateStr === today) {
         var countCell = sheet.getRange(i+2, 2);
         var newCount = (countCell.getValue() || 0) + 1;
         countCell.setValue(newCount);
@@ -278,4 +289,20 @@ function getOrCreateSessionSheet(ss, date, section) {
     sheet.setColumnWidth(6, 160);
   }
   return sheet;
+}
+
+// ── getSessionDates ───────────────────────────────────────────
+function getSessionDates(ss, section) {
+  var prefix = SHEET_PREFIX + section + '_';
+  var sheets = ss.getSheets();
+  var dates = [];
+  for (var i = 0; i < sheets.length; i++) {
+    var name = sheets[i].getName();
+    if (name.indexOf(prefix) === 0) {
+      var datePart = name.substring(prefix.length);
+      dates.push(datePart);
+    }
+  }
+  dates.sort().reverse();
+  return { dates: dates };
 }

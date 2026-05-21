@@ -15,22 +15,22 @@
 /* ── RESET & VARS ── */
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 :root{
-  --bg:#080b08;--bg2:#0d120d;--bg3:#111811;
-  --green:#3ddc6e;--green2:#2ab855;--green-dim:#1a5c2e;
-  --green-glow:rgba(61,220,110,.12);--green-glow2:rgba(61,220,110,.06);
-  --purple:#a855f7;--purple2:#7c3aed;--purple-dim:#3b1f6b;
-  --purple-glow:rgba(168,85,247,.15);
-  --text:#e4ede4;--text-dim:#7a9a7a;--text-muted:#3a5a3a;
-  --border:#1a2e1a;--border2:#243624;
+  --bg:#07070a;--bg2:#0b0f12;--bg3:#0f1416;
+  --green:#00d4b4;--green2:#00b392;--green-dim:#017a63;
+  --green-glow:rgba(0,212,180,.12);--green-glow2:rgba(0,212,180,.06);
+  --purple:#7c5cff;--purple2:#5b3df5;--purple-dim:#30215a;
+  --purple-glow:rgba(124,92,255,.12);
+  --text:#e6eef1;--text-dim:#9fb6b0;--text-muted:#5a6b68;
+  --border:#0b1a1a;--border2:#122626;
   --safe-top:env(safe-area-inset-top,0px);
   --safe-bot:env(safe-area-inset-bottom,0px);
   /* Surfaces: distinct from main bg for popovers */
-  --surface-search:#0a1620;
-  --surface-search-border:#14532d;
-  --surface-dropdown:#0d1f28;
-  --surface-dropdown-border:#1e6b4a;
-  --surface-quickadd:#14101f;
-  --surface-quickadd-border:#6d28d9;
+  --surface-search:#071319;
+  --surface-search-border:#063b34;
+  --surface-dropdown:#07131a;
+  --surface-dropdown-border:#064e43;
+  --surface-quickadd:#0f0b14;
+  --surface-quickadd-border:#5b3df5;
 }
 
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased}
@@ -284,6 +284,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
         <div id="visitCounter" style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-muted);letter-spacing:.06em"></div>
       </div>
     </div>
+    <div class="date-selector-row" style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
+      <select id="dateSelect" onchange="onDateChange()" class="share-input" style="font-family:'JetBrains Mono',monospace;font-size:12px;padding:6px 12px;flex:1;margin-top:0"></select>
+      <button onclick="createNewSessionPrompt()" class="sync-btn" style="padding:6px 12px;margin-top:0;font-size:12px;color:var(--green);border-color:var(--green-dim);white-space:nowrap">＋ Новая</button>
+    </div>
     <div class="local-trust-hint" id="localTrustHint"></div>
 
     <!-- SECTION TABS -->
@@ -344,6 +348,23 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
 </div>
 
 <!-- share handled via native Web Share API -->
+
+<!-- NEW SESSION MODAL -->
+<div class="edit-modal" id="newSessionModal">
+  <div class="edit-modal-backdrop" onclick="closeNewSessionModal()"></div>
+  <div class="edit-modal-box">
+    <div class="edit-modal-title">Начать новую сессию</div>
+    <div style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);margin-bottom:14px;line-height:1.6">
+      Введите или выберите дату инвентаризации для цеха.
+    </div>
+    <div class="edit-field">
+      <label>Выберите дату</label>
+      <input type="date" id="newSessionDateInput" class="share-input" list="existingDates">
+      <datalist id="existingDates"></datalist>
+    </div>
+    <button class="edit-save-btn" onclick="confirmNewSession()">Начать</button>
+  </div>
+</div>
 
 <!-- RESET CONFIRM MODAL -->
 <div class="edit-modal" id="resetModal">
@@ -408,13 +429,30 @@ let activeItem = null;
 let editMode = false;
 let syncTimer = null;
 let isOnline = navigator.onLine;
-const TODAY = todayStr();
+let selectedDate = todayStr();
 let currentSection = localStorage.getItem('lastSection') || 'бар';
 
-function keyTotals() { return 'totals_' + currentSection + '_' + TODAY; }
-function keyDirty() { return 'dirty_' + currentSection + '_' + TODAY; }
+function safeSetItem(key, val) {
+  try { localStorage.setItem(key, val); } catch (e) { console.warn('safeSetItem failed:', e); }
+}
+function safeRemoveItem(key) {
+  try { localStorage.removeItem(key); } catch (e) { console.warn('safeRemoveItem failed:', e); }
+}
+
+function esc(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
+function keyTotals() { return 'totals_' + currentSection + '_' + selectedDate; }
+function keyDirty() { return 'dirty_' + currentSection + '_' + selectedDate; }
 function keyCatalog() { return 'catalog_' + currentSection; }
-function keyPending() { return 'pending_' + currentSection + '_' + TODAY; }
+function keyPending() { return 'pending_' + currentSection + '_' + selectedDate; }
 
 // ── IndexedDB: дубль localStorage (надёжнее при сбоях Safari / нехватке места в LS) ──
 var IDB_NAME = 'cafe-de-ghouli-inv';
@@ -464,9 +502,9 @@ function mirrorSnapshotToIndexedDB() {
       pendingRaw: pendingRaw,
       ts: Date.now(),
       section: currentSection,
-      date: TODAY
+      date: selectedDate
     };
-    idbPut('snap_' + currentSection + '_' + TODAY, payload).catch(function () {});
+    idbPut('snap_' + currentSection + '_' + selectedDate, payload).catch(function () {});
     var catRaw = localStorage.getItem(keyCatalog());
     if (catRaw) idbPut('cat_' + currentSection, catRaw).catch(function () {});
   } catch (e) {}
@@ -476,18 +514,18 @@ async function tryRecoverFromIndexedDB() {
   if (!('indexedDB' in window)) return;
   try {
     var sec = currentSection;
-    var snapKey = 'snap_' + sec + '_' + TODAY;
-    if (!localStorage.getItem('totals_' + sec + '_' + TODAY)) {
+    var snapKey = 'snap_' + sec + '_' + selectedDate;
+    if (!localStorage.getItem('totals_' + sec + '_' + selectedDate)) {
       var snap = await idbGet(snapKey);
       if (snap && snap.totals) {
-        localStorage.setItem('totals_' + sec + '_' + TODAY, JSON.stringify(snap.totals));
-        localStorage.setItem('dirty_' + sec + '_' + TODAY, JSON.stringify(snap.dirty || []));
-        if (snap.pendingRaw) localStorage.setItem('pending_' + sec + '_' + TODAY, snap.pendingRaw);
+        safeSetItem('totals_' + sec + '_' + selectedDate, JSON.stringify(snap.totals));
+        safeSetItem('dirty_' + sec + '_' + selectedDate, JSON.stringify(snap.dirty || []));
+        if (snap.pendingRaw) safeSetItem('pending_' + sec + '_' + selectedDate, snap.pendingRaw);
       }
     }
     if (!localStorage.getItem('catalog_' + sec)) {
       var cat = await idbGet('cat_' + sec);
-      if (cat && typeof cat === 'string') localStorage.setItem('catalog_' + sec, cat);
+      if (cat && typeof cat === 'string') safeSetItem('catalog_' + sec, cat);
     }
   } catch (e) {}
 }
@@ -726,7 +764,7 @@ async function deleteItem(itemId) {
 // ── SHARE ────────────────────────────────────────
 function buildReportText() {
   const sectionLabel = SECTIONS[currentSection].label;
-  const lines = [`📋 Инвентаризация — ${sectionLabel}`, `📅 ${TODAY}`, ''];
+  const lines = [`📋 Инвентаризация — ${sectionLabel}`, `📅 ${selectedDate}`, ''];
   cats.forEach(cat => {
     const filled = cat.items.filter(i => (totals[i.id]||0) > 0);
     if (!filled.length) return;
@@ -748,11 +786,11 @@ async function openShareModal() {
   cats.forEach(cat => {
     cat.items.forEach(item => {
       const total = totals[item.id] || 0;
-      csv += `${TODAY},"${SECTIONS[currentSection].label}","${cat.name}","${item.code||''}","${item.name}",${item.unit},${total}\n`;
+      csv += `${selectedDate},"${SECTIONS[currentSection].label}","${cat.name}","${item.code||''}","${item.name}",${item.unit},${total}\n`;
     });
   });
-  const title = `Инвентаризация ${SECTIONS[currentSection].label} — ${TODAY}`;
-  const filename = `inventory_${currentSection}_${TODAY}.csv`;
+  const title = `Инвентаризация ${SECTIONS[currentSection].label} — ${selectedDate}`;
+  const filename = `inventory_${currentSection}_${selectedDate}.csv`;
   if (navigator.share) {
     try {
       const file = new File([csv], filename, { type: 'text/csv' });
@@ -919,6 +957,140 @@ async function _doDelete(itemId) {
   } catch(e) { showToast('Ошибка: ' + e.message); }
 }
 
+// ── SESSION DATES AND SWITCHING ──────────────────────
+async function loadDates() {
+  if (!isOnline) {
+    populateDateSelect([selectedDate, todayStr()]);
+    return;
+  }
+  try {
+    const data = await apiFetch({action: 'getDates', section: currentSection});
+    if (data && data.dates) {
+      let dates = data.dates;
+      const today = todayStr();
+      if (!dates.includes(today)) {
+        dates.unshift(today);
+      }
+      if (!dates.includes(selectedDate)) {
+        dates.push(selectedDate);
+      }
+      dates = [...new Set(dates)].sort().reverse();
+      populateDateSelect(dates);
+    } else {
+      populateDateSelect([selectedDate, todayStr()]);
+    }
+  } catch (e) {
+    populateDateSelect([selectedDate, todayStr()]);
+  }
+}
+
+function populateDateSelect(dates) {
+  const select = document.getElementById('dateSelect');
+  if (!select) return;
+  select.innerHTML = dates.map(d => `<option value="${d}" ${d === selectedDate ? 'selected' : ''}>${formatDateRu(d)}</option>`).join('');
+}
+
+function formatDateRu(dateStr) {
+  const parts = dateStr.split('-');
+  if (parts.length === 3) {
+    return `${parts[2]}.${parts[1]}.${parts[0]}`;
+  }
+  return dateStr;
+}
+
+async function onDateChange() {
+  const select = document.getElementById('dateSelect');
+  if (!select) return;
+  const newDate = select.value;
+  if (newDate === selectedDate) return;
+
+  if (dirty.size > 0) {
+    persistPendingSnapshot();
+    saveLocal();
+    if (isOnline) await flushDirty();
+  }
+
+  selectedDate = newDate;
+  totals = {};
+  dirty = new Set();
+  loadLocal();
+
+  document.getElementById('searchInput').value = '';
+  listFilter = '';
+  document.getElementById('dropdown').classList.remove('visible');
+  document.getElementById('quickadd').classList.remove('visible');
+  activeItem = null;
+  updateOverlayState();
+
+  showListLoadingState('Загрузка сессии...');
+
+  await loadSession();
+  renderList();
+  updateStats();
+  updateLocalTrustHint();
+}
+
+async function createNewSessionPrompt() {
+  const modal = document.getElementById('newSessionModal');
+  const input = document.getElementById('newSessionDateInput');
+  // Ensure we have latest dates to suggest existing sessions
+  try { await loadDates(); } catch (e) { /* ignore */ }
+  // Populate datalist with available dates
+  try {
+    const dl = document.getElementById('existingDates');
+    const select = document.getElementById('dateSelect');
+    if (dl && select) {
+      const opts = Array.from(select.options).map(o => o.value).filter(Boolean);
+      dl.innerHTML = opts.map(d => `<option value="${d}">${formatDateRu(d)}</option>`).join('');
+    }
+  } catch (e) { /* ignore */ }
+
+  if (modal && input) {
+    input.value = todayStr();
+    modal.classList.add('visible');
+  }
+}
+
+function closeNewSessionModal() {
+  const modal = document.getElementById('newSessionModal');
+  if (modal) modal.classList.remove('visible');
+}
+
+async function confirmNewSession() {
+  const input = document.getElementById('newSessionDateInput');
+  if (!input || !input.value) return;
+  const newDate = input.value;
+
+  closeNewSessionModal();
+
+  if (dirty.size > 0) {
+    persistPendingSnapshot();
+    saveLocal();
+    if (isOnline) await flushDirty();
+  }
+
+  selectedDate = newDate;
+  await loadDates();
+
+  totals = {};
+  dirty = new Set();
+  loadLocal();
+
+  document.getElementById('searchInput').value = '';
+  listFilter = '';
+  document.getElementById('dropdown').classList.remove('visible');
+  document.getElementById('quickadd').classList.remove('visible');
+  activeItem = null;
+  updateOverlayState();
+
+  showListLoadingState('Создание сессии...');
+
+  await loadSession();
+  renderList();
+  updateStats();
+  updateLocalTrustHint();
+}
+
 // ── SECTION SWITCH ───────────────────────────────
 async function switchSection(section) {
   if (section === currentSection) return;
@@ -929,13 +1101,16 @@ async function switchSection(section) {
     if (isOnline) await flushDirty();
   }
   currentSection = section;
-  localStorage.setItem('lastSection', section);
+  safeSetItem('lastSection', section);
   // Update tab UI
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   const tab = document.getElementById('tab-' + section);
   if (tab) tab.classList.add('active');
   // Reset state
   catalog = []; cats = []; totals = {}; dirty = new Set();
+  
+  await loadDates();
+  
   loadLocal();
   document.getElementById('searchInput').value = '';
   listFilter = '';
@@ -981,6 +1156,7 @@ document.addEventListener('click', function(e) {
 
 (async function init() {
   await tryRecoverFromIndexedDB();
+  await loadDates();
   loadLocal();
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   const activeTab = document.getElementById('tab-' + currentSection);
@@ -1064,12 +1240,15 @@ async function loadCatalog() {
   try {
     const data = await apiFetch({action:'catalog', sheet: SECTIONS[currentSection].sheet});
     if (data.error) { showError('Ошибка: ' + data.error); return; }
-    if (data.items && data.items.length) {
+    if (data.items) {
       catalog = data.items;
-      localStorage.setItem(keyCatalog(), JSON.stringify(catalog));
+      safeSetItem(keyCatalog(), JSON.stringify(catalog));
       buildCats();
       hideLoading();
       mirrorSnapshotToIndexedDB();
+      if (!catalog.length) {
+        showError('Справочник пуст. Нажмите кнопку внизу, чтобы добавить позицию.');
+      }
     }
   } catch(e) {
     const cached = localStorage.getItem(keyCatalog());
@@ -1091,11 +1270,20 @@ async function loadSession() {
     const localTotals = {...totals};
     const pendingRaw = localStorage.getItem(keyPending());
     const pending = pendingRaw ? JSON.parse(pendingRaw) : null;
-    const data = await apiFetch({action:'session', date:TODAY, section:currentSection});
+    const data = await apiFetch({action:'session', date:selectedDate, section:currentSection});
     if (data.items !== undefined) {
       totals = {};
       data.items.forEach(item => {
-        if (item.total > 0) totals[item.id] = item.total;
+        if (item.total > 0) {
+          // Ищем товар в справочнике по ИМЕНИ (для предотвращения смещения строк)
+          const catItem = catalog.find(i => i.name === item.name);
+          if (catItem) {
+            totals[catItem.id] = item.total;
+          } else {
+            // Если в справочнике нет, оставляем оригинальный ID (маловероятно)
+            totals[item.id] = item.total;
+          }
+        }
       });
       // Never lose local edits: overlay unsynced local values
       dirty.forEach(id => { totals[id] = localTotals[id] || 0; });
@@ -1131,15 +1319,15 @@ function showError(msg) {
   if (banner) wrap.appendChild(banner);
   const err = document.createElement('div');
   err.className = 'state-msg';
-  err.innerHTML = '⚠<span>' + msg + '</span>';
+  err.innerHTML = '⚠<span>' + esc(msg) + '</span>';
   wrap.appendChild(err);
 }
 
 // ── LOCAL STORAGE ─────────────────────────────────────
 function saveLocal() {
-  localStorage.setItem(keyTotals(), JSON.stringify(totals));
-  localStorage.setItem(keyDirty(), JSON.stringify([...dirty]));
-  try { localStorage.setItem('lastLocalSaveTs', String(Date.now())); } catch (e) {}
+  safeSetItem(keyTotals(), JSON.stringify(totals));
+  safeSetItem(keyDirty(), JSON.stringify([...dirty]));
+  safeSetItem('lastLocalSaveTs', String(Date.now()));
   mirrorSnapshotToIndexedDB();
   updateLocalTrustHint();
 }
@@ -1152,14 +1340,14 @@ function loadLocal() {
 }
 
 function persistPendingSnapshot() {
-  localStorage.setItem(keyPending(), JSON.stringify({
+  safeSetItem(keyPending(), JSON.stringify({
     ts: Date.now(),
     items: allFilledItems()
   }));
 }
 
 function clearPendingSnapshot() {
-  localStorage.removeItem(keyPending());
+  safeRemoveItem(keyPending());
 }
 
 function getItemsToSync() {
@@ -1183,7 +1371,7 @@ async function flushDirty() {
   setSyncState('syncing');
   try {
     const items = getItemsToSync();
-    await apiPost({action:'saveAll', date:TODAY, section:currentSection, items});
+    await apiPost({action:'saveAll', date:selectedDate, section:currentSection, items});
     dirty.clear();
     clearPendingSnapshot();
     saveLocal();
@@ -1207,7 +1395,7 @@ async function syncNow() {
   if (!isOnline) { showToast('⚠ Нет подключения — сохранено локально', true); return; }
   setSyncState('syncing');
   try {
-    await apiPost({action:'saveAll', date:TODAY, section:currentSection, items: getItemsToSync()});
+    await apiPost({action:'saveAll', date:selectedDate, section:currentSection, items: getItemsToSync()});
     dirty.clear();
     clearPendingSnapshot();
     saveLocal();
@@ -1274,18 +1462,23 @@ function renderDropdown(items, q) {
     updateOverlayState();
     return;
   }
-  const esc = q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
+  const regexEsc = q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&');
   dd.innerHTML = items.map(item => {
     const total = totals[item.id] || 0;
     const st = catStyle(item.category);
-    const hl = item.name.replace(new RegExp(`(${esc})`,'gi'),'<mark>$1</mark>');
-    return `<div class="dropdown-item" onclick="openQuickAdd('${item.id}')">
+    const safeName = esc(item.name);
+    const safeCategory = esc(item.category);
+    const safeCode = esc(item.code);
+    const safeUnit = esc(item.unit);
+    const safeId = esc(item.id);
+    const hl = safeName.replace(new RegExp(`(${regexEsc})`,'gi'),'<mark>$1</mark>');
+    return `<div class="dropdown-item" onclick="openQuickAdd('${safeId}')">
       <div class="di-icon" style="background:${st.color}22;border:1px solid ${st.color}33">${st.emoji}</div>
       <div class="di-info">
         <div class="di-name">${hl}</div>
-        <div class="di-meta">${item.category}${item.code?' · '+item.code:''}</div>
+        <div class="di-meta">${safeCategory}${safeCode?' · '+safeCode:''}</div>
       </div>
-      <div class="di-current ${total>0?'has':'zero'}">${total>0?fmt(total,item.unit):'—'}</div>
+      <div class="di-current ${total>0?'has':'zero'}">${total>0?fmt(total,safeUnit):'—'}</div>
     </div>`;
   }).join('');
   dd.classList.add('visible');
@@ -1316,27 +1509,34 @@ function openQuickAdd(itemId) {
   const total = totals[item.id] || 0;
   const st = catStyle(item.category);
   const qa = document.getElementById('quickadd');
+  
+  const safeName = esc(item.name);
+  const safeCategory = esc(item.category);
+  const safeCode = esc(item.code);
+  const safeUnit = esc(item.unit);
+  const safeId = esc(item.id);
+  
   qa.innerHTML = `
     <div class="qa-handle"></div>
     <div class="qa-header">
       <div class="qa-icon" style="background:${st.color}22;border:1px solid ${st.color}44">${st.emoji}</div>
       <div class="qa-texts">
-        <div class="qa-name">${item.name}</div>
-        <div class="qa-meta">${item.category}${item.code?' · '+item.code:''}</div>
+        <div class="qa-name">${safeName}</div>
+        <div class="qa-meta">${safeCategory}${safeCode?' · '+safeCode:''}</div>
       </div>
       <button class="qa-close" onclick="closeQuickAdd()">×</button>
     </div>
     <div style="text-align:right;margin-bottom:10px">
-      <button class="qa-edit-trigger" onclick="requestEditPin('${item.id}')">✏️ Редактировать</button>
+      <button class="qa-edit-trigger" onclick="requestEditPin('${safeId}')">✏️ Редактировать</button>
     </div>
     <div class="qa-current">
       <div class="qa-current-label">Текущий остаток</div>
-      <div class="qa-current-val ${total===0?'zero':''}">${total>0?fmt(total,item.unit):'—'}</div>
+      <div class="qa-current-val ${total===0?'zero':''}">${total>0?fmt(total,safeUnit):'—'}</div>
     </div>
     <div class="qa-input-row">
       <input type="number" inputmode="decimal" class="qa-input" id="qaInput"
         placeholder="0" step="0.0001" min="0" onkeydown="qaKeydown(event)">
-      <div class="qa-unit-badge">${item.unit}</div>
+      <div class="qa-unit-badge">${safeUnit}</div>
     </div>
     <div class="qa-actions">
       <button class="qa-btn-add" onclick="qaAdd()">＋ Добавить</button>
@@ -1425,7 +1625,7 @@ function renderList(filter) {
   if (q) {
     const badge = document.createElement('div');
     badge.style.cssText = 'font-family:JetBrains Mono,monospace;font-size:11px;color:var(--green);padding:8px 4px 4px;letter-spacing:.06em;display:flex;align-items:center;gap:8px';
-    badge.innerHTML = `<span>Фильтр: «${q}»</span><span onclick="clearSearch()" style="color:var(--text-muted);cursor:pointer;font-size:14px">×</span>`;
+    badge.innerHTML = `<span>Фильтр: «${esc(q)}»</span><span onclick="clearSearch()" style="color:var(--text-muted);cursor:pointer;font-size:14px">×</span>`;
     wrap.appendChild(badge);
   }
 
@@ -1440,7 +1640,7 @@ function renderList(filter) {
     group.className = 'cat-group';
     group.innerHTML = `
       <div class="cat-label">
-        <div class="cat-dot" style="background:${cat.color}"></div>${cat.name}
+        <div class="cat-dot" style="background:${esc(cat.color)}"></div>${esc(cat.name)}
       </div>
       ${items.map(item => cardHTML(item, cat)).join('')}`;
     wrap.appendChild(group);
@@ -1466,6 +1666,10 @@ function cardHTML(item, cat) {
   const total = totals[item.id] || 0;
   const has = total > 0;
   const st = cat ? {emoji: cat.emoji, color: cat.color} : catStyle(item.category);
+  const safeName = esc(item.name);
+  const safeCategory = esc(item.category);
+  const safeCode = esc(item.code);
+  const safeUnit = esc(item.unit);
   return `<div class="swipe-wrap" id="swipe-${item.id}">
     <div class="swipe-actions">
       <div class="swipe-act swipe-act-edit" onclick="requestEditPin('${item.id}')">✏️<span>Ред.</span></div>
@@ -1476,12 +1680,12 @@ function cardHTML(item, cat) {
       data-item-id="${item.id}">
       <div class="item-icon" style="background:${st.color}22;border-color:${st.color}33">${st.emoji}</div>
       <div class="item-body">
-        <div class="item-name">${item.name}</div>
-        <div class="item-sub">${item.code||'без кода'} · ${item.unit}</div>
+        <div class="item-name">${safeName}</div>
+        <div class="item-sub">${safeCode||'без кода'} · ${safeUnit}</div>
       </div>
       <div class="item-right">
         <div class="item-total ${has?'has':'none'}">${has?formatNum(total):'·'}</div>
-        ${has?`<div class="item-unit-lbl">${item.unit}</div>`:''}
+        ${has?`<div class="item-unit-lbl">${safeUnit}</div>`:''}
       </div>
     </div>
   </div>`;
@@ -1525,13 +1729,13 @@ function exportCSV() {
   cats.forEach(cat => {
     cat.items.forEach(item => {
       const total = totals[item.id] || 0;
-      csv += `${TODAY},"${cat.name}","${item.code}","${item.name}",${item.unit},${total}\n`;
+      csv += `${selectedDate},"${cat.name}","${item.code}","${item.name}",${item.unit},${total}\n`;
     });
   });
   const blob = new Blob([csv], {type:'text/csv;charset=utf-8'});
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
-  a.href = url; a.download = `inventory_${TODAY}.csv`; a.click();
+  a.href = url; a.download = `inventory_${selectedDate}.csv`; a.click();
   setTimeout(()=>URL.revokeObjectURL(url), 1000);
   showToast('✓ CSV скачан');
 }
