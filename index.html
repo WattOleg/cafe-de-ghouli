@@ -970,29 +970,47 @@ async function _doDelete(itemId) {
 
 // ── SESSION DATES AND SWITCHING ──────────────────────
 async function loadDates() {
-  if (!isOnline) {
-    populateDateSelect([selectedDate, todayStr()]);
-    return;
-  }
-  try {
-    const data = await apiFetch({action: 'getDates', section: currentSection});
-    if (data && data.dates) {
-      let dates = data.dates;
-      const today = todayStr();
-      if (!dates.includes(today)) {
-        dates.unshift(today);
+  let dates = [];
+  
+  // Первый приоритет: даты с локально сохранёнными данными
+  // Ищем все ключи localStorage вида "totals_[section]_[date]"
+  const prefix = 'totals_' + currentSection + '_';
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i);
+    if (key && key.startsWith(prefix)) {
+      const date = key.substring(prefix.length);
+      // Проверяем, что это валидная дата (формат YYYY-MM-DD)
+      if (/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        dates.push(date);
       }
-      if (!dates.includes(selectedDate)) {
-        dates.push(selectedDate);
-      }
-      dates = [...new Set(dates)].sort().reverse();
-      populateDateSelect(dates);
-    } else {
-      populateDateSelect([selectedDate, todayStr()]);
     }
-  } catch (e) {
-    populateDateSelect([selectedDate, todayStr()]);
   }
+  
+  // Второй приоритет: даты из Google Sheets (если онлайн)
+  if (isOnline) {
+    try {
+      const data = await apiFetch({action: 'getDates', section: currentSection});
+      if (data && data.dates && Array.isArray(data.dates)) {
+        dates = dates.concat(data.dates);
+      }
+    } catch (e) {
+      // Если не удалось загрузить с сервера, используем локальные даты
+    }
+  }
+  
+  // Добавляем сегодня и текущую дату (если их нет)
+  const today = todayStr();
+  if (!dates.includes(today)) {
+    dates.push(today);
+  }
+  if (!dates.includes(selectedDate)) {
+    dates.push(selectedDate);
+  }
+  
+  // Удаляем дубликаты и сортируем в обратном порядке (новые первыми)
+  dates = [...new Set(dates)].sort().reverse();
+  
+  populateDateSelect(dates);
 }
 
 function populateDateSelect(dates) {
