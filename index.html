@@ -46,16 +46,22 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
   position:relative;z-index:200;
 }
 
-.brand-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:14px}
-.brand-label{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:500;letter-spacing:.2em;text-transform:uppercase;color:var(--text-muted)}
-.brand-name{font-size:20px;font-weight:800;color:var(--text);letter-spacing:-.02em;margin-top:2px}
+.date-selector-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
+.date-selector-row .share-input{font-family:'JetBrains Mono',monospace;font-size:13px;padding:10px 12px;flex:1;min-width:150px}
+.date-selector-row .sync-btn{min-width:140px}
+
+.brand-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
+.brand-label{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:var(--text-muted)}
+.brand-name{font-size:18px;font-weight:700;color:var(--text);letter-spacing:-.02em;margin-top:2px}
 .sync-btn{
   display:flex;align-items:center;gap:6px;
   background:var(--bg3);border:1px solid var(--border2);
-  color:var(--text-dim);font-family:'JetBrains Mono',monospace;font-size:10px;
-  letter-spacing:.06em;padding:7px 12px;border-radius:10px;cursor:pointer;
+  color:var(--text-dim);font-family:'JetBrains Mono',monospace;font-size:11px;
+  letter-spacing:.06em;padding:9px 14px;border-radius:12px;cursor:pointer;
   transition:all .2s;flex-shrink:0;margin-top:4px;
 }
+.sync-btn.primary{background:var(--green);border-color:var(--green2);color:#080b08;box-shadow:0 10px 18px rgba(100,181,246,.12)}
+.sync-btn.primary:hover{background:var(--green2);border-color:var(--green);color:#080b08}
 .sync-btn:hover{border-color:var(--green-dim);color:var(--green)}
 .sync-btn.syncing{color:var(--green);border-color:var(--green-dim)}
 .sync-dot{width:6px;height:6px;border-radius:50%;background:var(--text-muted);transition:background .3s}
@@ -164,7 +170,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
 @media (hover:hover){.tab-btn:hover:not(.active){background:var(--bg3);border-color:var(--green2);color:var(--text)}}
 
 .cat-group{margin-bottom:4px}
-.cat-label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted);padding:14px 4px 6px;display:flex;align-items:center;gap:8px}
+.cat-label{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--text-muted);padding:14px 10px 6px;display:flex;align-items:center;gap:8px;border-left:4px solid transparent}
 .cat-label::after{content:'';flex:1;height:1px;background:var(--border)}
 .cat-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;box-shadow:0 0 8px currentColor;animation:dotPulse 2s ease-in-out infinite}
 @keyframes dotPulse{0%,100%{opacity:.8;transform:scale(1)}50%{opacity:1;transform:scale(1.1)}}
@@ -288,16 +294,16 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
         <div class="brand-name">Café de Ghouli</div>
       </div>
       <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
-        <button class="sync-btn" id="syncBtn" onclick="syncNow()">
+        <button class="sync-btn primary" id="syncBtn" onclick="syncNow()">
           <div class="sync-dot" id="syncDot"></div>
           <span id="syncLabel">Сохранить</span>
         </button>
         <div id="visitCounter" style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-muted);letter-spacing:.06em"></div>
       </div>
     </div>
-    <div class="date-selector-row" style="display:flex;align-items:center;gap:8px;margin-bottom:10px">
-      <select id="dateSelect" onchange="onDateChange()" class="share-input" style="font-family:'JetBrains Mono',monospace;font-size:12px;padding:6px 12px;flex:1;margin-top:0"></select>
-      <button onclick="createNewSessionPrompt()" class="sync-btn" style="padding:6px 12px;margin-top:0;font-size:12px;color:var(--green);border-color:var(--green-dim);white-space:nowrap">＋ Новая</button>
+    <div class="date-selector-row">
+      <select id="dateSelect" onchange="onDateChange()" class="share-input"></select>
+      <button onclick="createNewSessionPrompt()" class="sync-btn primary" style="color:#080b08;">＋ Новая сессия</button>
     </div>
     <div class="local-trust-hint" id="localTrustHint"></div>
 
@@ -345,9 +351,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
     </div>
     <div class="bottom-actions">
       <button class="action-btn green" onclick="exportCSV()">
-        <span class="action-btn-icon">↓</span>Скачать
+        <span class="action-btn-icon">↓</span>CSV
       </button>
-      <button class="action-btn purple" onclick="openShareModal()">
+      <button class="action-btn purple" onclick="exportReport()">
+        <span class="action-btn-icon">📄</span>PDF
+      </button>
+      <button class="action-btn green" onclick="openShareModal()">
         <span class="action-btn-icon">↗</span>Отправить
       </button>
       <button class="action-btn red" onclick="requestResetPin()">
@@ -1667,7 +1676,7 @@ function renderList(filter) {
     const group = document.createElement('div');
     group.className = 'cat-group';
     group.innerHTML = `
-      <div class="cat-label">
+      <div class="cat-label" style="border-left-color:${esc(cat.color)}">
         <div class="cat-dot" style="background:${esc(cat.color)}"></div>${esc(cat.name)}
       </div>
       ${items.map(item => cardHTML(item, cat)).join('')}`;
@@ -1703,7 +1712,7 @@ function cardHTML(item, cat) {
       <div class="swipe-act swipe-act-edit" onclick="requestEditPin('${item.id}')">✏️<span>Ред.</span></div>
       <div class="swipe-act swipe-act-del" onclick="requestDeletePin('${item.id}')">🗑<span>Удал.</span></div>
     </div>
-    <div class="item-card${has?' has-val':''}" id="card-${item.id}"
+    <div class="item-card${has?' has-val':''}" id="card-${item.id}" style="border-left:4px solid ${st.color}33;"
       onclick="onCardClick(event,'${item.id}')"
       data-item-id="${item.id}">
       <div class="item-icon" style="background:${st.color}22;border-color:${st.color}33">${st.emoji}</div>
@@ -1766,6 +1775,50 @@ function exportCSV() {
   a.href = url; a.download = `inventory_${selectedDate}.csv`; a.click();
   setTimeout(()=>URL.revokeObjectURL(url), 1000);
   showToast('✓ CSV скачан');
+}
+
+function exportReport() {
+  if (!catalog.length) { showToast('Справочник не загружен', true); return; }
+  const sectionLabel = SECTIONS[currentSection].label;
+  const reportDate = selectedDate;
+  const filledCount = catalog.filter(item => (totals[item.id] || 0) > 0).length;
+  const totalCount = catalog.length;
+  let html = `<!doctype html><html><head><meta charset="utf-8"><title>Отчёт инвентаризации</title><style>
+    body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff;margin:24px}
+    h1{font-size:24px;margin-bottom:4px}
+    .meta{font-size:13px;color:#555;margin-bottom:20px}
+    .summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:24px}
+    .summary-item{padding:12px 14px;border:1px solid #ddd;border-radius:12px;background:#f7f7f7}
+    .summary-item strong{display:block;font-size:12px;color:#555;margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em}
+    .category{margin-bottom:26px}
+    .category-title{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:16px;font-weight:700}
+    .category-badge{width:14px;height:14px;border-radius:50%;display:inline-block}
+    table{width:100%;border-collapse:collapse;font-size:13px}
+    th,td{padding:10px;border:1px solid #ddd;text-align:left}
+    th{background:#fafafa}
+  </style></head><body>
+    <h1>Отчёт инвентаризации</h1>
+    <div class="meta">Цех: ${esc(sectionLabel)} · Дата: ${formatDateRu(reportDate)}</div>
+    <div class="summary">
+      <div class="summary-item"><strong>Всего позиций</strong>${totalCount}</div>
+      <div class="summary-item"><strong>Заполнено</strong>${filledCount}</div>
+      <div class="summary-item"><strong>Дата отчёта</strong>${new Date().toLocaleString('ru-RU')}</div>
+    </div>`;
+  cats.forEach(cat => {
+    html += `<div class="category"><div class="category-title"><span class="category-badge" style="background:${esc(cat.color)}"></span>${esc(cat.name)}</div>`;
+    html += `<table><thead><tr><th>Код</th><th>Наименование</th><th>Ед. изм.</th><th>Остаток</th></tr></thead><tbody>`;
+    cat.items.forEach(item => {
+      const total = totals[item.id] || 0;
+      html += `<tr><td>${esc(item.code)}</td><td>${esc(item.name)}</td><td>${esc(item.unit)}</td><td>${formatNum(total)}</td></tr>`;
+    });
+    html += '</tbody></table></div>';
+  });
+  html += `<script>window.onload=function(){window.print();window.onafterprint=function(){window.close();}};<\/script></body></html>`;
+  const win = window.open('','_blank');
+  if (!win) { showToast('Пожалуйста, разрешите всплывающие окна', true); return; }
+  win.document.write(html);
+  win.document.close();
+  win.focus();
 }
 
 // ── HELPERS ───────────────────────────────────────────
