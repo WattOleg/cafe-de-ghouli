@@ -244,7 +244,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
 .bstat-label{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
 /* Action buttons row */
 .bottom-actions{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px;pointer-events:all}
-.action-btn{flex:1 1 22%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:8px 8px;border-radius:12px;cursor:pointer;border:1.5px solid var(--border2);font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:.02em;transition:all .15s;-webkit-appearance:none;min-height:40px;color:var(--text);background:var(--bg3);min-width:68px;max-width:140px;white-space:nowrap;}
+.action-btn{flex:1 1 calc(50% - 8px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:8px 8px;border-radius:12px;cursor:pointer;border:1.5px solid var(--border2);font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:.02em;transition:all .15s;-webkit-appearance:none;min-height:40px;color:var(--text);background:var(--bg3);min-width:120px;max-width:none;white-space:normal;}
 .action-btn:active{transform:scale(.98);background:var(--bg2)}
 @media (hover:hover){.action-btn:hover{background:rgba(100,181,246,.08);transform:translateY(-1px)}}
 .action-btn-icon{font-size:16px;line-height:1}
@@ -254,6 +254,26 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
 .action-btn.purple:active{background:rgba(100,181,246,.2)}
 .action-btn.red{background:rgba(248,113,113,.15);border-color:#f87171;color:var(--text)}
 .action-btn.red:active{background:rgba(248,113,113,.25)}
+@media (max-width: 460px) {
+  .topbar{padding:calc(var(--safe-top) + 10px) 12px 10px;}
+  .header-title{font-size:15px;}
+  .visit-counter{font-size:10px;}
+  .date-selector-row{flex-direction:column;align-items:stretch;gap:8px;}
+  .date-selector-row .share-input{min-width:0;}
+  .sync-btn{width:100%;justify-content:center;}
+  .menu-modal-box{max-width:100%;margin:0 10px;}
+  .menu-modal-header{padding:14px 14px 8px;}
+  .menu-modal-title{font-size:10px;}
+  .menu-modal-current{font-size:16px;}
+  .menu-modal-btn{font-size:13px;padding:12px 14px;}
+  .bottom-bar{padding:10px 12px calc(12px + var(--safe-bot));}
+  .bottom-actions{gap:8px;}
+  .action-btn{font-size:12px;padding:10px 10px;min-height:42px;flex:1 1 calc(50% - 8px);}
+  .bstat-val{font-size:14px;}
+  .bstat-label{font-size:8px;}
+  .share-input{font-size:12px;padding:10px 12px;}
+  .search-box{font-size:14px;padding:12px 14px;}
+}
 .progress-strip{height:3px;background:var(--border);border-radius:2px;margin:6px 0 0;overflow:hidden;pointer-events:none}
 .progress-fill{height:100%;background:linear-gradient(90deg,var(--green-dim),var(--green));border-radius:2px;transition:width .5s cubic-bezier(.4,0,.2,1)}
 /* share modal fields */
@@ -323,7 +343,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
         <div class="header-row">
       <div class="header-left">
         <button class="menu-btn" onclick="toggleMenu()">☰</button>
-        <div class="header-title">Inventory</div>
+        <div class="header-title" id="headerTitle">Inventory</div>
       </div>
       <div class="header-right">
         <button class="bell-btn" onclick="toggleNotifications()">🔔</button>
@@ -407,10 +427,10 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
     </div>
     <div class="progress-strip"><div class="progress-fill" id="progressFill"></div></div>
     <div class="bottom-actions">
-      <button class="action-btn green" onclick="exportCSV()"><span class="action-btn-icon">📄</span>Сохранить CSV</button>
-      <button class="action-btn purple" onclick="exportReport()"><span class="action-btn-icon">📄</span>Сохранить PDF</button>
-      <button class="action-btn" onclick="syncNow()"><span class="action-btn-icon">📤</span>Отправить</button>
-      <button class="action-btn red" onclick="requestResetPin()"><span class="action-btn-icon">↺</span>Обнулить</button>
+      <button type="button" class="action-btn green" onclick="exportCSV()"><span class="action-btn-icon">📄</span>Сохранить CSV</button>
+      <button type="button" class="action-btn purple" onclick="exportReport()"><span class="action-btn-icon">📄</span>Сохранить PDF</button>
+      <button type="button" class="action-btn" onclick="syncNow()"><span class="action-btn-icon">📤</span>Отправить</button>
+      <button type="button" class="action-btn red" onclick="requestResetPin()"><span class="action-btn-icon">↺</span>Обнулить</button>
     </div>
   </div>
 </div>
@@ -1247,6 +1267,7 @@ document.addEventListener('click', function(e) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   const activeTab = document.getElementById('tab-' + currentSection);
   if (activeTab) activeTab.classList.add('active');
+  updateSectionHeader(currentSection);
   updateLocalTrustHint();
   if (hydrateCatalogFromCache()) {
     renderList();
@@ -1540,7 +1561,14 @@ function closeMenu() {
 function chooseSection(section) {
   closeMenu();
   if (section === currentSection) return;
+  updateSectionHeader(section);
   switchSection(section);
+}
+
+function updateSectionHeader(section) {
+  const title = document.getElementById('headerTitle');
+  if (!title) return;
+  title.textContent = SECTIONS[section] ? SECTIONS[section].label : section;
 }
 
 function toggleNotifications() {
