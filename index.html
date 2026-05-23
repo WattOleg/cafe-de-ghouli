@@ -33,34 +33,24 @@
   --surface-quickadd-border:#64b5f6;
 }
 
-html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased;position:relative}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased}
 
 /* ── APP SHELL ── */
 .app{display:flex;flex-direction:column;height:100vh;height:100dvh;max-width:540px;margin:0 auto;position:relative}
 
 /* ── STATUS BAR SAFE AREA ── */
 .topbar{
-  padding:calc(var(--safe-top) + 12px) 18px 12px;
+  padding:calc(var(--safe-top) + 16px) 18px 14px;
   flex-shrink:0;
   background:linear-gradient(180deg,var(--bg) 70%,transparent);
-  position:relative;z-index:300;
-  display:flex;flex-direction:column;gap:12px;
+  position:relative;z-index:200;
 }
 
-.header-row{display:flex;align-items:center;justify-content:space-between}
-.header-left{display:flex;align-items:center;gap:12px}
-.menu-btn{background:none;border:none;cursor:pointer;color:var(--text);font-size:20px;padding:0;width:24px;height:24px;display:flex;align-items:center;justify-content:center}
-.header-title{font-size:16px;font-weight:700;color:var(--text);letter-spacing:-.02em}
-.header-right{display:flex;align-items:center;gap:12px;position:relative}
-.visit-counter{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);white-space:nowrap}
-.bell-btn{background:none;border:none;cursor:pointer;color:var(--text);font-size:18px;padding:0;width:24px;height:24px;display:flex;align-items:center;justify-content:center}
-.notification-badge{position:absolute;width:8px;height:8px;background:var(--green);border-radius:50%;top:2px;right:1px}
-
-.date-selector-row{display:flex;align-items:center;gap:10px}
+.date-selector-row{display:flex;align-items:center;gap:10px;margin-bottom:10px}
 .date-selector-row .share-input{font-family:'JetBrains Mono',monospace;font-size:13px;padding:10px 12px;flex:1;min-width:150px}
 .date-selector-row .sync-btn{min-width:140px}
 
-.brand-row{display:none}
+.brand-row{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:12px}
 .brand-label{font-family:'JetBrains Mono',monospace;font-size:9px;font-weight:500;letter-spacing:.18em;text-transform:uppercase;color:var(--text-muted)}
 .brand-name{font-size:18px;font-weight:700;color:var(--text);letter-spacing:-.02em;margin-top:2px}
 .sync-btn{
@@ -172,7 +162,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
 .local-trust-hint{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-muted);line-height:1.4;margin-top:10px;padding:0 2px;letter-spacing:.03em;max-width:100%}
 
 /* ── SECTION TABS ── */
-.section-tabs{display:none;gap:6px;margin-top:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
+.section-tabs{display:flex;gap:6px;margin-top:10px;overflow-x:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding-bottom:2px}
 .section-tabs::-webkit-scrollbar{display:none}
 .tab-btn{flex-shrink:0;background:var(--bg3);border:1.5px solid var(--border2);color:var(--text-muted);font-family:'JetBrains Mono',monospace;font-size:11px;font-weight:600;letter-spacing:.06em;padding:7px 14px;border-radius:20px;cursor:pointer;transition:all .2s;white-space:nowrap;-webkit-appearance:none}
 .tab-btn:active{transform:scale(.97)}
@@ -218,63 +208,31 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
 /* ── BOTTOM BAR ── */
 .bottom-bar{
   position:absolute;bottom:0;left:0;right:0;
-  padding:8px 10px calc(10px + var(--safe-bot));
-  background:var(--bg);
-  border-top:1px solid var(--border2);
+  padding:10px 14px calc(10px + var(--safe-bot));
+  background:linear-gradient(0deg,var(--bg) 60%,transparent);
   pointer-events:none;
-  z-index:200;
-  display:flex;
-  flex-direction:column;
-  justify-content:flex-end;
-  align-items:stretch;
-  gap:6px;
-  height:auto;
+  z-index:2;
 }
-/* Navigation tabs */
-.nav-tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:none;border:none;cursor:pointer;color:var(--text-muted);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;padding:8px 0;transition:color .2s;-webkit-appearance:none;pointer-events:all;flex:1;height:60px}
-.nav-tab:active{color:var(--green)}
-.nav-tab.active{color:var(--green)}
-.nav-icon{font-size:18px;line-height:1}
 /* Stats row */
-.bottom-stats{display:flex;justify-content:space-between;gap:10px}
+.bottom-stats{background:var(--bg3);border:1px solid var(--border2);border-radius:15px;padding:10px 14px;display:flex;align-items:center;pointer-events:all;gap:4px}
 .bstat{flex:1;text-align:center}
 .bstat+.bstat{border-left:1px solid var(--border)}
 .bstat-val{font-family:'JetBrains Mono',monospace;font-size:16px;font-weight:500;color:var(--green)}
 .bstat-val.purple{color:var(--purple)}
 .bstat-label{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
 /* Action buttons row */
-.bottom-actions{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px;pointer-events:all}
-.action-btn{flex:1 1 calc(50% - 8px);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:8px 8px;border-radius:12px;cursor:pointer;border:1.5px solid var(--border2);font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:.02em;transition:all .15s;-webkit-appearance:none;min-height:40px;color:var(--text);background:var(--bg3);min-width:120px;max-width:none;white-space:normal;}
-.action-btn:active{transform:scale(.98);background:var(--bg2)}
-@media (hover:hover){.action-btn:hover{background:rgba(100,181,246,.08);transform:translateY(-1px)}}
-.action-btn-icon{font-size:16px;line-height:1}
+.bottom-actions{display:flex;gap:8px;margin-top:8px;pointer-events:all}
+.action-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:12px 6px;border-radius:13px;cursor:pointer;border:1.5px solid;font-family:'Syne',sans-serif;font-size:13px;font-weight:700;letter-spacing:.02em;transition:all .15s;-webkit-appearance:none;min-height:54px;color:var(--text)}
+.action-btn:active{transform:scale(.97)}
+@media (hover:hover){.action-btn:hover{background:var(--bg3);transform:translateY(-2px)}}
+.action-btn-icon{font-size:18px;line-height:1}
 .action-btn.green{background:rgba(100,181,246,.15);border-color:var(--green2);color:var(--text)}
 .action-btn.green:active{background:rgba(100,181,246,.25)}
 .action-btn.purple{background:rgba(100,181,246,.1);border-color:var(--green2);color:var(--text)}
 .action-btn.purple:active{background:rgba(100,181,246,.2)}
-.action-btn.red{background:rgba(248,113,113,.15);border-color:#f87171;color:var(--text)}
-.action-btn.red:active{background:rgba(248,113,113,.25)}
-@media (max-width: 460px) {
-  .topbar{padding:calc(var(--safe-top) + 10px) 12px 10px;}
-  .header-title{font-size:15px;}
-  .visit-counter{font-size:10px;}
-  .date-selector-row{flex-direction:column;align-items:stretch;gap:8px;}
-  .date-selector-row .share-input{min-width:0;}
-  .sync-btn{width:100%;justify-content:center;}
-  .menu-modal-box{max-width:100%;margin:0 10px;}
-  .menu-modal-header{padding:14px 14px 8px;}
-  .menu-modal-title{font-size:10px;}
-  .menu-modal-current{font-size:16px;}
-  .menu-modal-btn{font-size:13px;padding:12px 14px;}
-  .bottom-bar{padding:10px 12px calc(12px + var(--safe-bot));}
-  .bottom-actions{gap:8px;}
-  .action-btn{font-size:12px;padding:10px 10px;min-height:42px;flex:1 1 calc(50% - 8px);}
-  .bstat-val{font-size:14px;}
-  .bstat-label{font-size:8px;}
-  .share-input{font-size:12px;padding:10px 12px;}
-  .search-box{font-size:14px;padding:12px 14px;}
-}
-.progress-strip{height:3px;background:var(--border);border-radius:2px;margin:6px 0 0;overflow:hidden;pointer-events:none}
+.action-btn.red{background:rgba(100,181,246,.15);border-color:var(--green2);color:var(--text)}
+.action-btn.red:active{background:rgba(100,181,246,.25)}
+.progress-strip{height:3px;background:var(--border);border-radius:2px;margin:8px 2px 0;overflow:hidden;pointer-events:none}
 .progress-fill{height:100%;background:linear-gradient(90deg,var(--green-dim),var(--green));border-radius:2px;transition:width .5s cubic-bezier(.4,0,.2,1)}
 /* share modal fields */
 .share-input{width:100%;background:var(--bg2);border:1.5px solid var(--border2);border-radius:11px;padding:11px 14px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--text);outline:none;caret-color:var(--green);-webkit-appearance:none;margin-top:0}
@@ -323,16 +281,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
 .overlay{position:fixed;inset:0;background:rgba(0,0,0,.48);z-index:190;display:none}
 .overlay.visible{display:block}
 .overlay.overlay--pop{background:rgba(0,0,0,.72)}
-.menu-modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;z-index:510;padding:18px}
-.menu-modal.visible{display:flex}
-.menu-modal-box{width:100%;max-width:420px;background:var(--bg3);border:1.5px solid var(--border2);border-radius:22px;overflow:hidden;box-shadow:0 28px 80px rgba(0,0,0,.9)}
-.menu-modal-header{padding:18px 18px 4px}
-.menu-modal-title{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-muted);letter-spacing:.14em;text-transform:uppercase;margin-bottom:8px}
-.menu-modal-current{font-family:'Syne',sans-serif;font-size:18px;font-weight:700;color:var(--text);margin-bottom:18px}
-.menu-modal-list{display:grid;gap:10px;padding:0 18px 18px}
-.menu-modal-btn{width:100%;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border:1.5px solid var(--border2);border-radius:16px;background:var(--bg);color:var(--text);font-family:'Syne',sans-serif;font-weight:700;font-size:14px;cursor:pointer;transition:all .2s;text-align:left}
-.menu-modal-btn:hover{border-color:var(--green2);background:rgba(100,181,246,.08)}
-.menu-modal-btn span{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted)}
 </style>
 </head>
 <body>
@@ -340,20 +288,21 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
 
   <!-- TOP BAR -->
   <div class="topbar">
-        <div class="header-row">
-      <div class="header-left">
-        <button class="menu-btn" onclick="toggleMenu()">☰</button>
-        <div class="header-title" id="headerTitle">Inventory</div>
+    <div class="brand-row">
+      <div>
+        <div class="brand-label">Инвентаризация</div>
+        <div class="brand-name">Café de Ghouli</div>
       </div>
-      <div class="header-right">
-        <button class="bell-btn" onclick="toggleNotifications()">🔔</button>
-        <div class="notification-badge"></div>
-        <div class="visit-counter" id="visitCounter"></div>
+      <div style="display:flex;flex-direction:column;align-items:flex-end;gap:6px">
+        <button class="sync-btn primary" id="syncBtn" onclick="syncNow()">
+          <div class="sync-dot" id="syncDot"></div>
+          <span id="syncLabel">Сохранить</span>
+        </button>
+        <div id="visitCounter" style="font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-muted);letter-spacing:.06em"></div>
       </div>
     </div>
     <div class="date-selector-row">
       <select id="dateSelect" onchange="onDateChange()" class="share-input"></select>
-      <button id="syncBtn" class="sync-btn" onclick="syncNow()"><span class="sync-dot" id="syncDot"></span><span id="syncLabel">Сохранить</span></button>
       <button onclick="createNewSessionPrompt()" class="sync-btn primary" style="color:#080b08;">＋ Новая сессия</button>
     </div>
     <div class="local-trust-hint" id="localTrustHint"></div>
@@ -384,22 +333,6 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
   <!-- OVERLAY -->
   <div class="overlay" id="overlay" onclick="closeAll()"></div>
 
-  <div class="menu-modal" id="menuModal">
-    <div class="edit-modal-backdrop" onclick="closeMenu()"></div>
-    <div class="menu-modal-box">
-      <div class="menu-modal-header">
-        <div class="menu-modal-title">Выберите цех</div>
-        <div class="menu-modal-current" id="menuCurrentSection"></div>
-      </div>
-      <div class="menu-modal-list">
-        <button class="menu-modal-btn" onclick="chooseSection('бар')">🍸 Бар<span>Алкогольный склад</span></button>
-        <button class="menu-modal-btn" onclick="chooseSection('кухня')">🍳 Кухня<span>Запасы кухни</span></button>
-        <button class="menu-modal-btn" onclick="chooseSection('кондитерская')">🎂 Кондитерская<span>Сладости и десерты</span></button>
-        <button class="menu-modal-btn" onclick="chooseSection('зал')">🍽️ Зал<span>Обслуживание зала</span></button>
-      </div>
-    </div>
-  </div>
-
   <!-- LIST -->
   <div class="list-wrap" id="listWrap">
     <div class="offline-banner" id="offlineBanner">⚠ Офлайн-режим — данные сохранятся при подключении</div>
@@ -412,28 +345,26 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
   <!-- BOTTOM -->
   <div class="bottom-bar">
     <div class="bottom-stats">
-      <div class="bstat">
-        <div class="bstat-label">Заполнено</div>
-        <div class="bstat-val" id="bsFilled">0</div>
-      </div>
-      <div class="bstat">
-        <div class="bstat-label">Всего</div>
-        <div class="bstat-val" id="bsTotal">0</div>
-      </div>
-      <div class="bstat">
-        <div class="bstat-label">Готово</div>
-        <div class="bstat-val" id="bsPct">0%</div>
-      </div>
+      <div class="bstat"><div class="bstat-val" id="bsFilled">0</div><div class="bstat-label">Заполнено</div></div>
+      <div class="bstat"><div class="bstat-val purple" id="bsTotal">—</div><div class="bstat-label">Позиций</div></div>
+      <div class="bstat"><div class="bstat-val" id="bsPct">0%</div><div class="bstat-label">Готово</div></div>
     </div>
-    <div class="progress-strip"><div class="progress-fill" id="progressFill"></div></div>
     <div class="bottom-actions">
-      <button type="button" class="action-btn green" onclick="exportCSV()"><span class="action-btn-icon">📄</span>Сохранить CSV</button>
-      <button type="button" class="action-btn purple" onclick="exportReport()"><span class="action-btn-icon">📄</span>Сохранить PDF</button>
-      <button type="button" class="action-btn" onclick="syncNow()"><span class="action-btn-icon">📤</span>Отправить</button>
-      <button type="button" class="action-btn red" onclick="requestResetPin()"><span class="action-btn-icon">↺</span>Обнулить</button>
+      <button class="action-btn green" onclick="exportCSV()">
+        <span class="action-btn-icon">↓</span>CSV
+      </button>
+      <button class="action-btn purple" onclick="exportReport()">
+        <span class="action-btn-icon">📄</span>PDF
+      </button>
+      <button class="action-btn green" onclick="openShareModal()">
+        <span class="action-btn-icon">↗</span>Отправить
+      </button>
+      <button class="action-btn red" onclick="requestResetPin()">
+        <span class="action-btn-icon">↺</span>Обнулить
+      </button>
     </div>
+    <div class="progress-strip"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
   </div>
-</div>
 </div>
 
 <!-- share handled via native Web Share API -->
@@ -1267,7 +1198,6 @@ document.addEventListener('click', function(e) {
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
   const activeTab = document.getElementById('tab-' + currentSection);
   if (activeTab) activeTab.classList.add('active');
-  updateSectionHeader(currentSection);
   updateLocalTrustHint();
   if (hydrateCatalogFromCache()) {
     renderList();
@@ -1534,54 +1464,6 @@ function updateOfflineBanner() {
 // Active list filter (set by Enter)
 let listFilter = '';
 
-// ── UI HELPERS ────────────────────────────────────
-function toggleMenu() {
-  const modal = document.getElementById('menuModal');
-  if (!modal) return;
-  if (modal.classList.contains('visible')) {
-    closeMenu();
-  } else {
-    openMenu();
-  }
-}
-
-function openMenu() {
-  const modal = document.getElementById('menuModal');
-  const current = document.getElementById('menuCurrentSection');
-  if (!modal) return;
-  if (current) current.textContent = 'Сейчас: ' + (SECTIONS[currentSection] ? SECTIONS[currentSection].label : currentSection);
-  modal.classList.add('visible');
-}
-
-function closeMenu() {
-  const modal = document.getElementById('menuModal');
-  if (modal) modal.classList.remove('visible');
-}
-
-function chooseSection(section) {
-  closeMenu();
-  if (section === currentSection) return;
-  updateSectionHeader(section);
-  switchSection(section);
-}
-
-function updateSectionHeader(section) {
-  const title = document.getElementById('headerTitle');
-  if (!title) return;
-  title.textContent = SECTIONS[section] ? SECTIONS[section].label : section;
-}
-
-function toggleNotifications() {
-  showToast('No new notifications');
-}
-
-function navigateTo(page, event) {
-  // Update active button
-  document.querySelectorAll('.nav-tab').forEach(btn => btn.classList.remove('active'));
-  event.target.closest('.nav-tab').classList.add('active');
-  showToast(`Navigating to ${page}...`);
-}
-
 function onSearch() {
   closeQuickAdd();
   const q = document.getElementById('searchInput').value.trim();
@@ -1715,7 +1597,6 @@ function closeQuickAdd() {
 function closeAll() {
   document.getElementById('dropdown').classList.remove('visible');
   document.getElementById('quickadd').classList.remove('visible');
-  closeMenu();
   activeItem = null;
   updateOverlayState();
   document.getElementById('searchInput').blur();
