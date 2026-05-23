@@ -43,7 +43,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
   padding:calc(var(--safe-top) + 12px) 18px 12px;
   flex-shrink:0;
   background:linear-gradient(180deg,var(--bg) 70%,transparent);
-  position:relative;z-index:200;
+  position:relative;z-index:300;
   display:flex;flex-direction:column;gap:12px;
 }
 
@@ -218,7 +218,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
 /* ── BOTTOM BAR ── */
 .bottom-bar{
   position:absolute;bottom:0;left:0;right:0;
-  padding:10px 14px calc(14px + var(--safe-bot));
+  padding:8px 10px calc(10px + var(--safe-bot));
   background:var(--bg);
   border-top:1px solid var(--border2);
   pointer-events:none;
@@ -227,8 +227,8 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
   flex-direction:column;
   justify-content:flex-end;
   align-items:stretch;
-  gap:8px;
-  height:calc(118px + var(--safe-bot));
+  gap:6px;
+  height:auto;
 }
 /* Navigation tabs */
 .nav-tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;background:none;border:none;cursor:pointer;color:var(--text-muted);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.04em;padding:8px 0;transition:color .2s;-webkit-appearance:none;pointer-events:all;flex:1;height:60px}
@@ -243,18 +243,18 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:'Syne',
 .bstat-val.purple{color:var(--purple)}
 .bstat-label{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-top:2px}
 /* Action buttons row */
-.bottom-actions{display:flex;justify-content:space-between;align-items:center;gap:8px;pointer-events:all}
-.action-btn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;padding:10px 10px;border-radius:12px;cursor:pointer;border:1.5px solid var(--border2);font-family:'Syne',sans-serif;font-size:13px;font-weight:700;letter-spacing:.02em;transition:all .15s;-webkit-appearance:none;min-height:46px;color:var(--text);background:var(--bg3);}
+.bottom-actions{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:6px;pointer-events:all}
+.action-btn{flex:1 1 22%;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;padding:8px 8px;border-radius:12px;cursor:pointer;border:1.5px solid var(--border2);font-family:'Syne',sans-serif;font-size:12px;font-weight:700;letter-spacing:.02em;transition:all .15s;-webkit-appearance:none;min-height:40px;color:var(--text);background:var(--bg3);min-width:68px;max-width:140px;white-space:nowrap;}
 .action-btn:active{transform:scale(.98);background:var(--bg2)}
 @media (hover:hover){.action-btn:hover{background:rgba(100,181,246,.08);transform:translateY(-1px)}}
-.action-btn-icon{font-size:18px;line-height:1}
+.action-btn-icon{font-size:16px;line-height:1}
 .action-btn.green{background:rgba(100,181,246,.15);border-color:var(--green2);color:var(--text)}
 .action-btn.green:active{background:rgba(100,181,246,.25)}
 .action-btn.purple{background:rgba(100,181,246,.1);border-color:var(--green2);color:var(--text)}
 .action-btn.purple:active{background:rgba(100,181,246,.2)}
 .action-btn.red{background:rgba(248,113,113,.15);border-color:#f87171;color:var(--text)}
 .action-btn.red:active{background:rgba(248,113,113,.25)}
-.progress-strip{height:3px;background:var(--border);border-radius:2px;margin:8px 2px 0;overflow:hidden;pointer-events:none}
+.progress-strip{height:3px;background:var(--border);border-radius:2px;margin:6px 0 0;overflow:hidden;pointer-events:none}
 .progress-fill{height:100%;background:linear-gradient(90deg,var(--green-dim),var(--green));border-radius:2px;transition:width .5s cubic-bezier(.4,0,.2,1)}
 /* share modal fields */
 .share-input{width:100%;background:var(--bg2);border:1.5px solid var(--border2);border-radius:11px;padding:11px 14px;font-family:'JetBrains Mono',monospace;font-size:13px;color:var(--text);outline:none;caret-color:var(--green);-webkit-appearance:none;margin-top:0}
