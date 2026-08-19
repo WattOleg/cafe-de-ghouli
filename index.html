@@ -1438,7 +1438,7 @@ document.addEventListener('click', function(e) {
   document.body.addEventListener('touchstart', requestStoragePersistenceOnce, { once: true, passive: true });
   document.body.addEventListener('click', requestStoragePersistenceOnce, { once: true, passive: true });
   if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js', { scope: './' }).catch(function () {});
+    navigator.serviceWorker.register('sw.js?v=5', { scope: './' }).catch(function () {});
   }
 })();
 

@@ -1,5 +1,5 @@
 /* Offline shell: cache HTML so Safari can open the app without network after first visit */
-var CACHE = 'cafe-de-ghouli-shell-v4';
+var CACHE = 'cafe-de-ghouli-shell-v5';
 
 self.addEventListener('install', function (e) {
   e.waitUntil(
@@ -18,7 +18,15 @@ self.addEventListener('install', function (e) {
 });
 
 self.addEventListener('activate', function (e) {
-  e.waitUntil(self.clients.claim());
+  e.waitUntil(
+    caches.keys().then(function (keys) {
+      return Promise.all(keys.filter(function (k) { return k !== CACHE; }).map(function (k) {
+        return caches.delete(k);
+      }));
+    }).then(function () {
+      return self.clients.claim();
+    })
+  );
 });
 
 self.addEventListener('fetch', function (e) {
