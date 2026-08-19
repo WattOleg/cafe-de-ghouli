@@ -3,8 +3,8 @@
   "short_name": "Инвентарь",
   "start_url": ".",
   "display": "standalone",
-  "background_color": "#080b08",
-  "theme_color": "#080b08",
+  "background_color": "#0c0c0e",
+  "theme_color": "#0c0c0e",
   "icons": [
     {
       "src": "apple-touch-icon.png",

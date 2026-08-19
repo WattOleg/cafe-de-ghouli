@@ -1,10 +1,17 @@
 /* Offline shell: cache HTML so Safari can open the app without network after first visit */
-var CACHE = 'cafe-de-ghouli-shell-v2';
+var CACHE = 'cafe-de-ghouli-shell-v4';
 
 self.addEventListener('install', function (e) {
   e.waitUntil(
     caches.open(CACHE).then(function (cache) {
-      return cache.addAll(['./', './index.html', './manifest.json', './apple-touch-icon.png']).catch(function () {});
+      var urls = ['./', './index.html', './manifest.json', './apple-touch-icon.png'];
+      return Promise.all(
+        urls.map(function (url) {
+          return cache.add(url).catch(function (err) {
+            console.warn('Failed to cache:', url, err);
+          });
+        })
+      );
     })
   );
   self.skipWaiting();
@@ -19,6 +26,8 @@ self.addEventListener('fetch', function (e) {
   if (req.method !== 'GET') return;
   var url = req.url;
   if (url.indexOf('script.google') !== -1) return;
+  if (url.indexOf('supabase.co') !== -1) return;
+  if (url.indexOf('jsdelivr.net') !== -1) return;
   if (url.indexOf('fonts.googleapis') !== -1 || url.indexOf('fonts.gstatic') !== -1) return;
 
   e.respondWith(
