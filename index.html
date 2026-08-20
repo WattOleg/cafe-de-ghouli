@@ -438,7 +438,9 @@ button{cursor:pointer}
 .qa-edit-trigger:active{color:var(--text)}
 .item-edit-btn,.item-del-btn,.edit-btn{display:none}
 
-.actions-list .actions-item:last-child{color:#fecdd3;border-color:rgba(251,113,133,.28);background:var(--danger-soft)}
+.actions-item.danger{color:#fecdd3;border-color:rgba(251,113,133,.28);background:var(--danger-soft)}
+.menu-extra{margin-top:12px;padding-top:12px;border-top:1px solid var(--border)}
+.csv-file-input{position:absolute;width:1px;height:1px;opacity:0;overflow:hidden}
 .filter-chip{
   display:flex;align-items:center;justify-content:space-between;gap:10px;
   margin:0 0 10px;padding:10px 12px;
@@ -516,10 +518,13 @@ button{cursor:pointer}
         <div class="menu-modal-current" id="menuCurrentSection"></div>
       </div>
       <div class="menu-modal-list">
-        <button class="menu-modal-btn" onclick="chooseSection('бар')">🍸 Бар<span>Алкогольный склад</span></button>
-        <button class="menu-modal-btn" onclick="chooseSection('кухня')">🍳 Кухня<span>Запасы кухни</span></button>
-        <button class="menu-modal-btn" onclick="chooseSection('кондитерская')">🎂 Кондитерская<span>Сладости и десерты</span></button>
-        <button class="menu-modal-btn" onclick="chooseSection('зал')">🍽️ Зал<span>Обслуживание зала</span></button>
+        <button class="menu-modal-btn" data-section="бар" onclick="chooseSection('бар')">🍸 Бар<span>Алкогольный склад</span></button>
+        <button class="menu-modal-btn" data-section="кухня" onclick="chooseSection('кухня')">🍳 Кухня<span>Запасы кухни</span></button>
+        <button class="menu-modal-btn" data-section="кондитерская" onclick="chooseSection('кондитерская')">🎂 Кондитерская<span>Сладости и десерты</span></button>
+        <button class="menu-modal-btn" data-section="зал" onclick="chooseSection('зал')">🍽️ Зал<span>Обслуживание зала</span></button>
+      </div>
+      <div class="menu-extra">
+        <button type="button" class="actions-item" onclick="requestImportCsv()">Импортировать CSV<span>Загрузить таблицу позиций</span></button>
       </div>
       <div class="menu-footer">
         <span>Café de Ghouli</span>
@@ -538,7 +543,8 @@ button{cursor:pointer}
         <button type="button" class="actions-item" onclick="closeActions(); exportCSV()">Скачать CSV<span>Таблица Excel</span></button>
         <button type="button" class="actions-item" onclick="closeActions(); exportReport()">Скачать PDF<span>Печатный отчёт</span></button>
         <button type="button" class="actions-item" onclick="closeActions(); createNewSessionPrompt()">Новая сессия<span>Другая дата</span></button>
-        <button type="button" class="actions-item" onclick="closeActions(); requestResetPin()">Обнулить остатки<span>Нужен PIN</span></button>
+        <button type="button" class="actions-item danger" onclick="closeActions(); requestResetPin()">Обнулить остатки<span>Нужен PIN</span></button>
+        <button type="button" class="actions-item danger" onclick="closeActions(); requestDeleteDayPin()">Удалить день<span>Вся запись за дату</span></button>
       </div>
     </div>
   </div>
@@ -620,6 +626,26 @@ button{cursor:pointer}
     <button class="edit-save-btn" style="background:#7f1d1d;color:#fca5a5" onclick="confirmReset()">Обнулить</button>
   </div>
 </div>
+
+<!-- DELETE DAY MODAL -->
+<div class="edit-modal" id="deleteDayModal">
+  <div class="edit-modal-backdrop" onclick="closeDeleteDayModal()"></div>
+  <div class="edit-modal-box">
+    <div class="sheet-handle"></div>
+    <div class="edit-modal-title">Удалить запись дня</div>
+    <div id="deleteDayHint" style="font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-muted);margin-bottom:14px;line-height:1.6">
+      Запись выбранной даты будет удалена целиком.
+    </div>
+    <div class="edit-field">
+      <label>Введите PIN для подтверждения</label>
+      <input type="password" inputmode="numeric" id="deleteDayPinInput" placeholder="••••" maxlength="6"
+        onkeydown="if(event.key==='Enter') confirmDeleteDay()">
+    </div>
+    <button class="edit-save-btn" style="background:#7f1d1d;color:#fca5a5" onclick="confirmDeleteDay()">Удалить день</button>
+  </div>
+</div>
+
+<input type="file" id="csvImportInput" class="csv-file-input" accept=".csv,text/csv,text/plain,.txt" onchange="onCsvFilePicked(event)">
 
 <!-- PIN MODAL -->
 <div class="edit-modal" id="pinModal">
@@ -741,6 +767,26 @@ function idbGet(key) {
       r.onerror = function () { reject(r.error); };
     });
   });
+}
+
+function idbDel(key) {
+  return idbOpen().then(function (db) {
+    return new Promise(function (resolve, reject) {
+      var tx = db.transaction(IDB_STORE, 'readwrite');
+      tx.oncomplete = function () { resolve(); };
+      tx.onerror = function () { reject(tx.error); };
+      tx.objectStore(IDB_STORE).delete(key);
+    });
+  });
+}
+
+function clearLocalSession(date, section) {
+  var sec = section || currentSection;
+  var d = date || selectedDate;
+  safeRemoveItem('totals_' + sec + '_' + d);
+  safeRemoveItem('dirty_' + sec + '_' + d);
+  safeRemoveItem('pending_' + sec + '_' + d);
+  idbDel('snap_' + sec + '_' + d).catch(function () {});
 }
 
 function mirrorSnapshotToIndexedDB() {
@@ -1077,6 +1123,61 @@ function confirmReset() {
   showToast('↺ Остатки обнулены');
 }
 
+function requestDeleteDayPin() {
+  const hint = document.getElementById('deleteDayHint');
+  if (hint) {
+    hint.innerHTML = 'Запись <b>' + esc(formatDateRu(selectedDate)) + '</b> цеха «' +
+      esc(sectionTitle(currentSection)) + '» будет удалена целиком из облака и с устройства.<br>Справочник позиций сохранится.';
+  }
+  document.getElementById('deleteDayPinInput').value = '';
+  document.getElementById('deleteDayPinInput').placeholder = '••••';
+  document.getElementById('deleteDayModal').classList.add('visible');
+  setTimeout(() => document.getElementById('deleteDayPinInput').focus(), 80);
+}
+function closeDeleteDayModal() {
+  document.getElementById('deleteDayModal').classList.remove('visible');
+}
+async function confirmDeleteDay() {
+  const input = document.getElementById('deleteDayPinInput');
+  if (input.value !== EDIT_PIN) {
+    input.value = '';
+    input.placeholder = 'Неверный PIN ✕';
+    setTimeout(() => { input.placeholder = '••••'; }, 1500);
+    return;
+  }
+  if (!isOnline) {
+    showToast('Нужен интернет, чтобы удалить запись из облака', true);
+    return;
+  }
+  const deletedDate = selectedDate;
+  const btn = document.querySelector('#deleteDayModal .edit-save-btn');
+  btn.disabled = true;
+  btn.textContent = 'Удаляю...';
+  try {
+    await withRetry(function () { return dbDeleteSession(deletedDate, currentSection); });
+    clearLocalSession(deletedDate, currentSection);
+    closeDeleteDayModal();
+    pinUnlocked = true;
+    totals = {};
+    dirty = new Set();
+    if (deletedDate !== todayStr()) {
+      selectedDate = todayStr();
+      loadLocal();
+    }
+    await loadDates();
+    await loadSession();
+    renderList();
+    updateStats();
+    updateLocalTrustHint();
+    showToast('✓ Запись за ' + formatDateRu(deletedDate) + ' удалена');
+  } catch (e) {
+    showToast('Ошибка: ' + (e.message || 'не удалось удалить'), true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = 'Удалить день';
+  }
+}
+
 // ── PIN / EDIT AUTH ──────────────────────────────
 const EDIT_PIN = '1234'; // смени на свой PIN
 let pendingEditItemId = null;
@@ -1103,6 +1204,8 @@ function checkPin() {
     closePinModal();
     if (pendingEditItemId === '__add__') {
       openAddModal();
+    } else if (pendingEditItemId === '__import_csv__') {
+      runCsvImport();
     } else if (pendingEditItemId && pendingEditItemId.startsWith('__delete__:')) {
       const delId = pendingEditItemId.split(':')[1];
       _doDelete(delId);
@@ -1549,6 +1652,38 @@ async function dbSaveSession(date, section, items) {
   return { ok: true, saved: rows.length };
 }
 
+async function dbDeleteSession(date, section) {
+  const sb = dbReady();
+  const { error } = await sb.from('inv_session_items')
+    .delete()
+    .eq('section', section)
+    .eq('session_date', date);
+  if (error) dbThrow(error, 'Не удалось удалить запись дня');
+  return { ok: true };
+}
+
+async function dbAddItemsBulk(items) {
+  const sb = dbReady();
+  const rows = (items || []).map(function (i) {
+    return {
+      section: currentSection,
+      code: i.code || '',
+      name: i.name,
+      unit: i.unit || 'шт',
+      category: i.category || 'Прочее'
+    };
+  }).filter(function (i) { return i.name; });
+  if (!rows.length) return [];
+  const inserted = [];
+  for (var i = 0; i < rows.length; i += 80) {
+    var chunk = rows.slice(i, i + 80);
+    var res = await sb.from('inv_catalog_items').insert(chunk).select('id,code,name,unit,category');
+    if (res.error) dbThrow(res.error, 'Не удалось импортировать позиции');
+    inserted.push.apply(inserted, res.data || []);
+  }
+  return inserted.map(mapCatalogRow);
+}
+
 async function dbAddItem(fields) {
   const sb = dbReady();
   const { data, error } = await sb.from('inv_catalog_items').insert({
@@ -1895,9 +2030,8 @@ function openMenu() {
   if (!modal) return;
   closeActions();
   if (current) current.textContent = sectionTitle(currentSection);
-  document.querySelectorAll('.menu-modal-btn').forEach(function (btn, i) {
-    const keys = ['бар','кухня','кондитерская','зал'];
-    btn.classList.toggle('is-current', keys[i] === currentSection);
+  document.querySelectorAll('.menu-modal-btn[data-section]').forEach(function (btn) {
+    btn.classList.toggle('is-current', btn.getAttribute('data-section') === currentSection);
   });
   modal.classList.add('visible');
 }
@@ -2251,48 +2385,432 @@ function exportCSV() {
   showToast('✓ CSV скачан');
 }
 
-function exportReport() {
-  if (!catalog.length) { showToast('Справочник не загружен', true); return; }
-  const sectionLabel = SECTIONS[currentSection].label;
-  const reportDate = selectedDate;
-  const filledCount = catalog.filter(item => (totals[item.id] || 0) > 0).length;
-  const totalCount = catalog.length;
-  let html = `<!doctype html><html><head><meta charset="utf-8"><title>Отчёт инвентаризации</title><style>
-    body{font-family:Arial,Helvetica,sans-serif;color:#111;background:#fff;margin:24px}
-    h1{font-size:24px;margin-bottom:4px}
-    .meta{font-size:13px;color:#555;margin-bottom:20px}
-    .summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;margin-bottom:24px}
-    .summary-item{padding:12px 14px;border:1px solid #ddd;border-radius:12px;background:#f7f7f7}
-    .summary-item strong{display:block;font-size:12px;color:#555;margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em}
-    .category{margin-bottom:26px}
-    .category-title{display:flex;align-items:center;gap:10px;margin-bottom:10px;font-size:16px;font-weight:700}
-    .category-badge{width:14px;height:14px;border-radius:50%;display:inline-block}
-    table{width:100%;border-collapse:collapse;font-size:13px}
-    th,td{padding:10px;border:1px solid #ddd;text-align:left}
-    th{background:#fafafa}
-  </style></head><body>
-    <h1>Отчёт инвентаризации</h1>
-    <div class="meta">Цех: ${esc(sectionLabel)} · Дата: ${formatDateRu(reportDate)}</div>
-    <div class="summary">
-      <div class="summary-item"><strong>Всего позиций</strong>${totalCount}</div>
-      <div class="summary-item"><strong>Заполнено</strong>${filledCount}</div>
-      <div class="summary-item"><strong>Дата отчёта</strong>${new Date().toLocaleString('ru-RU')}</div>
-    </div>`;
-  cats.forEach(cat => {
-    html += `<div class="category"><div class="category-title"><span class="category-badge" style="background:${esc(cat.color)}"></span>${esc(cat.name)}</div>`;
-    html += `<table><thead><tr><th>Код</th><th>Наименование</th><th>Ед. изм.</th><th>Остаток</th></tr></thead><tbody>`;
-    cat.items.forEach(item => {
-      const total = totals[item.id] || 0;
-      html += `<tr><td>${esc(item.code)}</td><td>${esc(item.name)}</td><td>${esc(item.unit)}</td><td>${formatNum(total)}</td></tr>`;
-    });
-    html += '</tbody></table></div>';
+function loadScriptOnce(src) {
+  return new Promise(function (resolve, reject) {
+    var existing = document.querySelector('script[data-src="' + src + '"]');
+    if (existing) {
+      if (existing.getAttribute('data-loaded') === '1') return resolve();
+      existing.addEventListener('load', function () { resolve(); });
+      existing.addEventListener('error', function () { reject(new Error('script')); });
+      return;
+    }
+    var s = document.createElement('script');
+    s.src = src;
+    s.async = true;
+    s.setAttribute('data-src', src);
+    s.onload = function () { s.setAttribute('data-loaded', '1'); resolve(); };
+    s.onerror = function () { reject(new Error('Не удалось загрузить библиотеку')); };
+    document.head.appendChild(s);
   });
-  html += `<script>window.onload=function(){window.print();window.onafterprint=function(){window.close();}};<\/script></body></html>`;
-  const win = window.open('','_blank');
-  if (!win) { showToast('Пожалуйста, разрешите всплывающие окна', true); return; }
-  win.document.write(html);
-  win.document.close();
-  win.focus();
+}
+
+var pdfLibsPromise = null;
+function ensurePdfLibs() {
+  if (pdfLibsPromise) return pdfLibsPromise;
+  pdfLibsPromise = loadScriptOnce('https://cdn.jsdelivr.net/npm/jspdf@2.5.2/dist/jspdf.umd.min.js')
+    .then(function () {
+      return loadScriptOnce('https://cdn.jsdelivr.net/npm/jspdf-autotable@3.8.4/dist/jspdf.plugin.autotable.min.js');
+    })
+    .catch(function (e) {
+      pdfLibsPromise = null;
+      throw e;
+    });
+  return pdfLibsPromise;
+}
+
+function arrayBufferToBase64(buffer) {
+  var bytes = new Uint8Array(buffer);
+  var chunk = 0x8000;
+  var binary = '';
+  for (var i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+async function getPdfFonts() {
+  if (window.__pdfFonts && window.__pdfFonts.regular && window.__pdfFonts.bold) return window.__pdfFonts;
+  try {
+    var cached = await idbGet('pdf_fonts_ptsans_v1');
+    if (cached && cached.regular && cached.bold) {
+      window.__pdfFonts = cached;
+      return cached;
+    }
+  } catch (e) {}
+  var base = 'https://cdn.jsdelivr.net/gh/google/fonts@main/ofl/ptsans/';
+  var regularBuf = await fetch(base + 'PT_Sans-Web-Regular.ttf').then(function (r) {
+    if (!r.ok) throw new Error('font');
+    return r.arrayBuffer();
+  });
+  var boldBuf = await fetch(base + 'PT_Sans-Web-Bold.ttf').then(function (r) {
+    if (!r.ok) throw new Error('font');
+    return r.arrayBuffer();
+  });
+  var fonts = { regular: arrayBufferToBase64(regularBuf), bold: arrayBufferToBase64(boldBuf) };
+  window.__pdfFonts = fonts;
+  idbPut('pdf_fonts_ptsans_v1', fonts).catch(function () {});
+  return fonts;
+}
+
+function registerPdfFont(doc, fonts) {
+  doc.addFileToVFS('PTSans.ttf', fonts.regular);
+  doc.addFileToVFS('PTSans-Bold.ttf', fonts.bold);
+  doc.addFont('PTSans.ttf', 'PTSans', 'normal');
+  doc.addFont('PTSans-Bold.ttf', 'PTSans', 'bold');
+  doc.setFont('PTSans', 'normal');
+}
+
+async function saveBlobFile(blob, filename, mime) {
+  var file = new File([blob], filename, { type: mime || blob.type || 'application/octet-stream' });
+  var isiOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (isiOS && navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+    try {
+      await navigator.share({ files: [file], title: filename });
+      return;
+    } catch (e) {
+      if (e && e.name === 'AbortError') return;
+    }
+  }
+  var url = URL.createObjectURL(blob);
+  var a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(function () { URL.revokeObjectURL(url); }, 1500);
+}
+
+function drawPdfHeader(doc, pageW) {
+  var sectionLabel = sectionTitle(currentSection);
+  doc.setFillColor(12, 12, 14);
+  doc.rect(0, 0, pageW, 22, 'F');
+  doc.setTextColor(247, 247, 248);
+  doc.setFont('PTSans', 'bold');
+  doc.setFontSize(13);
+  doc.text('Café de Ghouli', 14, 10);
+  doc.setFont('PTSans', 'normal');
+  doc.setFontSize(9);
+  doc.text('Инвентаризация', 14, 16.5);
+  doc.setFont('PTSans', 'bold');
+  doc.text(sectionLabel, pageW - 14, 10, { align: 'right' });
+  doc.setFont('PTSans', 'normal');
+  doc.text(formatDateRu(selectedDate), pageW - 14, 16.5, { align: 'right' });
+}
+
+async function exportReport() {
+  if (!catalog.length) { showToast('Справочник не загружен', true); return; }
+  showToast('Готовлю PDF…');
+  try {
+    await ensurePdfLibs();
+    var fonts = await getPdfFonts();
+    var jsPDF = window.jspdf && window.jspdf.jsPDF;
+    if (!jsPDF) throw new Error('jsPDF');
+    var doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4', compress: true });
+    registerPdfFont(doc, fonts);
+
+    var pageW = doc.internal.pageSize.getWidth();
+    var pageH = doc.internal.pageSize.getHeight();
+    var filledCount = catalog.filter(function (item) { return (totals[item.id] || 0) > 0; }).length;
+    var printedAt = new Date().toLocaleString('ru-RU');
+    var body = [];
+    var n = 0;
+    cats.forEach(function (cat) {
+      if (!cat.items.length) return;
+      body.push([{
+        content: cat.name.toUpperCase() + '  ·  ' + cat.items.length,
+        colSpan: 5,
+        styles: {
+          font: 'PTSans',
+          fontStyle: 'bold',
+          fontSize: 8,
+          fillColor: [236, 253, 245],
+          textColor: [6, 95, 70],
+          cellPadding: { top: 3.2, bottom: 3.2, left: 3, right: 3 }
+        }
+      }]);
+      cat.items.forEach(function (item) {
+        n += 1;
+        var qty = totals[item.id] || 0;
+        var has = qty > 0;
+        body.push([
+          { content: String(n), styles: { halign: 'center', textColor: has ? [20, 20, 24] : [160, 160, 168] } },
+          { content: item.code || '—', styles: { textColor: has ? [20, 20, 24] : [160, 160, 168] } },
+          { content: item.name || '', styles: { fontStyle: has ? 'bold' : 'normal' } },
+          { content: item.unit || '', styles: { halign: 'center' } },
+          { content: has ? formatNum(qty) : '—', styles: { halign: 'right', fontStyle: has ? 'bold' : 'normal', textColor: has ? [6, 95, 70] : [160, 160, 168] } }
+        ]);
+      });
+    });
+
+    drawPdfHeader(doc, pageW);
+    doc.setTextColor(28, 28, 32);
+    doc.setFont('PTSans', 'normal');
+    doc.setFontSize(9);
+    doc.text('Всего позиций: ' + catalog.length + '    Заполнено: ' + filledCount + '    Сформирован: ' + printedAt, 14, 28);
+
+    doc.autoTable({
+      startY: 32,
+      margin: { top: 26, left: 14, right: 14, bottom: 16 },
+      head: [['№', 'Код', 'Наименование', 'Ед.', 'Остаток']],
+      body: body,
+      theme: 'grid',
+      tableLineColor: [220, 220, 224],
+      tableLineWidth: 0.12,
+      styles: {
+        font: 'PTSans',
+        fontSize: 8.5,
+        cellPadding: { top: 2.1, bottom: 2.1, left: 2.4, right: 2.4 },
+        lineColor: [226, 226, 230],
+        lineWidth: 0.12,
+        textColor: [28, 28, 32],
+        valign: 'middle',
+        overflow: 'linebreak',
+        minCellHeight: 6.4
+      },
+      headStyles: {
+        font: 'PTSans',
+        fontStyle: 'bold',
+        fillColor: [22, 22, 24],
+        textColor: [247, 247, 248],
+        fontSize: 8,
+        halign: 'left',
+        cellPadding: { top: 3, bottom: 3, left: 2.4, right: 2.4 }
+      },
+      columnStyles: {
+        0: { cellWidth: 12, halign: 'center' },
+        1: { cellWidth: 24 },
+        3: { cellWidth: 16, halign: 'center' },
+        4: { cellWidth: 24, halign: 'right' }
+      },
+      rowPageBreak: 'avoid',
+      showHead: 'everyPage',
+      didDrawPage: function () {
+        drawPdfHeader(doc, pageW);
+        doc.setDrawColor(52, 211, 153);
+        doc.setLineWidth(0.6);
+        doc.line(0, 22, pageW, 22);
+      }
+    });
+
+    var pageCount = doc.getNumberOfPages();
+    for (var p = 1; p <= pageCount; p++) {
+      doc.setPage(p);
+      doc.setFont('PTSans', 'normal');
+      doc.setFontSize(8);
+      doc.setTextColor(138, 138, 147);
+      doc.text('Café de Ghouli  ·  ' + sectionTitle(currentSection) + '  ·  ' + formatDateRu(selectedDate), 14, pageH - 8);
+      doc.text(String(p) + ' / ' + pageCount, pageW - 14, pageH - 8, { align: 'right' });
+    }
+
+    var filename = 'inventory_' + currentSection + '_' + selectedDate + '.pdf';
+    var blob = doc.output('blob');
+    await saveBlobFile(blob, filename, 'application/pdf');
+    showToast('✓ PDF готов');
+  } catch (e) {
+    showToast('Не удалось собрать PDF. Попробуйте ещё раз', true);
+  }
+}
+
+// ── IMPORT CSV ────────────────────────────────────────
+var pendingCsvText = '';
+
+function requestImportCsv() {
+  var input = document.getElementById('csvImportInput');
+  if (!input) return;
+  input.value = '';
+  input.click();
+  closeMenu();
+}
+
+function onCsvFilePicked(ev) {
+  var file = ev.target && ev.target.files && ev.target.files[0];
+  ev.target.value = '';
+  if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function () {
+    pendingCsvText = String(reader.result || '');
+    pendingEditItemId = '__import_csv__';
+    if (pinUnlocked) {
+      runCsvImport();
+      return;
+    }
+    document.getElementById('pinInput').value = '';
+    document.getElementById('pinModal').classList.add('visible');
+    setTimeout(function () { document.getElementById('pinInput').focus(); }, 80);
+  };
+  reader.onerror = function () { showToast('Не удалось прочитать файл', true); };
+  reader.readAsText(file);
+}
+
+function parseCsvRows(text) {
+  text = String(text || '').replace(/^\uFEFF/, '').replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  if (!text.trim()) return [];
+  var first = text.split('\n').find(function (l) { return l.trim(); }) || '';
+  var semi = (first.match(/;/g) || []).length;
+  var comma = (first.match(/,/g) || []).length;
+  var delim = semi > comma ? ';' : ',';
+  var rows = [];
+  var i = 0;
+  while (i < text.length) {
+    var cells = [];
+    var cur = '';
+    var inQuotes = false;
+    while (i < text.length) {
+      var ch = text[i];
+      if (inQuotes) {
+        if (ch === '"') {
+          if (text[i + 1] === '"') { cur += '"'; i += 2; continue; }
+          inQuotes = false; i++; continue;
+        }
+        cur += ch; i++; continue;
+      }
+      if (ch === '"') { inQuotes = true; i++; continue; }
+      if (ch === delim) { cells.push(cur.trim()); cur = ''; i++; continue; }
+      if (ch === '\n') { i++; cells.push(cur.trim()); break; }
+      cur += ch; i++;
+    }
+    if (i >= text.length) cells.push(cur.trim());
+    if (cells.some(function (c) { return c !== ''; })) rows.push(cells);
+  }
+  return rows;
+}
+
+function normalizeCsvHeader(h) {
+  return String(h || '').toLowerCase().replace(/ё/g, 'е').replace(/[^a-zа-я0-9]/g, '');
+}
+
+function parseCsvQty(raw, delimIsSemi) {
+  if (raw == null || raw === '') return 0;
+  var s = String(raw).trim().replace(/\s/g, '');
+  if (delimIsSemi) s = s.replace(',', '.');
+  else if (/^\d+,\d+$/.test(s)) s = s.replace(',', '.');
+  var n = parseFloat(s);
+  return isFinite(n) ? n : 0;
+}
+
+function mapCsvItems(text) {
+  var rows = parseCsvRows(text);
+  if (!rows.length) return [];
+  var first = rows[0].map(normalizeCsvHeader);
+  var headerMap = {
+    дата: 'date', date: 'date',
+    цех: 'section', section: 'section',
+    категория: 'category', category: 'category',
+    код: 'code', code: 'code',
+    наименование: 'name', название: 'name', позиция: 'name', name: 'name',
+    едизм: 'unit', единица: 'unit', unit: 'unit',
+    остаток: 'qty', количество: 'qty', qty: 'qty', total: 'qty', колво: 'qty'
+  };
+  var cols = {};
+  first.forEach(function (h, idx) {
+    if (headerMap[h] && cols[headerMap[h]] == null) cols[headerMap[h]] = idx;
+  });
+  var start = 0;
+  if (cols.name == null) {
+    if (rows[0].length >= 7) {
+      cols = { date: 0, section: 1, category: 2, code: 3, name: 4, unit: 5, qty: 6 };
+    } else if (rows[0].length >= 6) {
+      cols = { date: 0, category: 1, code: 2, name: 3, unit: 4, qty: 5 };
+    } else if (rows[0].length >= 3) {
+      cols = { name: 0, unit: 1, category: 2, code: 3, qty: 4 };
+    } else {
+      return [];
+    }
+  } else {
+    start = 1;
+  }
+  var firstLine = (text.split('\n').find(function (l) { return l.trim(); }) || '');
+  var delimIsSemi = (firstLine.match(/;/g) || []).length > (firstLine.match(/,/g) || []).length;
+  var out = [];
+  var seen = new Set();
+  for (var r = start; r < rows.length; r++) {
+    var row = rows[r];
+    var name = String(row[cols.name] || '').trim();
+    if (!name || /^наименование$/i.test(name)) continue;
+    var key = name.toLowerCase().replace(/\s+/g, ' ');
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      name: name,
+      code: cols.code != null ? String(row[cols.code] || '').trim() : '',
+      unit: (cols.unit != null ? String(row[cols.unit] || '').trim() : '') || 'шт',
+      category: (cols.category != null ? String(row[cols.category] || '').trim() : '') || 'Прочее',
+      qty: cols.qty != null ? parseCsvQty(row[cols.qty], delimIsSemi) : 0
+    });
+  }
+  return out;
+}
+
+function itemMatchKey(item, byCode) {
+  var code = String(item.code || '').trim().toLowerCase();
+  if (byCode && code) return 'c:' + code;
+  return 'n:' + String(item.name || '').trim().toLowerCase().replace(/\s+/g, ' ');
+}
+
+async function runCsvImport() {
+  var text = pendingCsvText;
+  pendingCsvText = '';
+  pendingEditItemId = null;
+  if (!text.trim()) { showToast('Файл пуст', true); return; }
+  if (!isOnline) { showToast('Нужен интернет, чтобы загрузить позиции', true); return; }
+  var items = mapCsvItems(text);
+  if (!items.length) { showToast('В CSV нет позиций', true); return; }
+  var sectionLabel = sectionTitle(currentSection);
+  if (!confirm('Найдено ' + items.length + ' позиций.\nДобавить в справочник цеха «' + sectionLabel + '»?')) return;
+  showToast('Загружаю позиции…');
+  try {
+    var byCode = {};
+    var byName = {};
+    catalog.forEach(function (it) {
+      var ck = itemMatchKey(it, true);
+      var nk = itemMatchKey(it, false);
+      if (ck.indexOf('c:') === 0) byCode[ck] = it;
+      byName[nk] = it;
+    });
+    var toAdd = [];
+    items.forEach(function (row) {
+      var existing = (row.code && byCode['c:' + row.code.toLowerCase()]) || byName[itemMatchKey(row, false)];
+      if (!existing) toAdd.push(row);
+    });
+    var addedCount = 0;
+    if (toAdd.length) {
+      var inserted = await withRetry(function () { return dbAddItemsBulk(toAdd); });
+      addedCount = (inserted && inserted.length) || toAdd.length;
+    }
+    catalog = [];
+    await loadCatalog();
+    var byCode2 = {};
+    var byName2 = {};
+    catalog.forEach(function (it) {
+      var ck = itemMatchKey(it, true);
+      var nk = itemMatchKey(it, false);
+      if (ck.indexOf('c:') === 0) byCode2[ck] = it;
+      byName2[nk] = it;
+    });
+    var qtyCount = 0;
+    items.forEach(function (row) {
+      if (!(row.qty > 0)) return;
+      var existing = (row.code && byCode2['c:' + row.code.toLowerCase()]) || byName2[itemMatchKey(row, false)];
+      if (!existing) return;
+      totals[existing.id] = row.qty;
+      dirty.add(existing.id);
+      qtyCount += 1;
+    });
+    if (qtyCount) {
+      saveLocal();
+      persistPendingSnapshot();
+      if (isOnline) flushDirty();
+    }
+    renderList();
+    updateStats();
+    var msg = addedCount ? ('✓ Добавлено ' + addedCount + ' позиций') : '✓ Все позиции уже были в справочнике';
+    if (qtyCount) msg += ', остатки обновлены';
+    showToast(msg);
+  } catch (e) {
+    showToast('Ошибка импорта: ' + (e.message || ''), true);
+  }
 }
 
 // ── HELPERS ───────────────────────────────────────────
